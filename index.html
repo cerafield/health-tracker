@@ -143,11 +143,11 @@
       </div>
 
       <div class="card">
-        <h2>✅ เช็กลิสต์วันนี้ <span class="small muted" id="todayLabel"></span></h2>
-        <div id="proteinWidget" style="margin-bottom:14px"></div>
+        <h2>📊 วันนี้กินไปเท่าไหร่ <span class="small muted" id="todayLabel"></span></h2>
+        <div id="todayBars"></div>
+        <h3>นิสัยอื่น ๆ (แตะติ๊ก)</h3>
         <div id="habits" class="grid" style="grid-template-columns:1fr 1fr;gap:8px"></div>
-        <h3>เพิ่มบันทึกอาหารเร็ว</h3>
-        <p class="small muted">ไปที่แท็บ “บันทึกอาหาร” เพื่อจดมื้อ/เวลา แล้วใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
+        <p class="small muted" style="margin-top:10px">จดอาหารในแท็บ “บันทึกอาหาร” แล้วหลอดด้านบนอัปเดตเอง · ใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
         <div class="note warn">💡 ส่อง %ไขมัน + เอว + กระจก เป็นหลัก อย่ายึดตัวเลขตาชั่งรายวัน</div>
       </div>
     </div>
@@ -315,10 +315,11 @@
       <label>กินอะไรบ้าง</label>
       <textarea id="f_items" placeholder="เช่น ไข่ขาว 4 + ไข่แดง 1, ข้าวกล้อง 1.5 ทัพพี, อกไก่ 7-11 1 ชิ้น..."></textarea>
       <div class="row">
-        <div><label>kcal (ถ้ารู้ — ไม่ใส่ก็ได้)</label><input type="number" id="f_kcal" placeholder="—"></div>
-        <div><label>โปรตีน g (ถ้ารู้)</label><input type="number" id="f_pro" placeholder="—"></div>
+        <div><label>kcal (คำนวณให้/แก้ได้)</label><input type="number" id="f_kcal" placeholder="—"></div>
+        <div><label>โปรตีน g (คำนวณให้/แก้ได้)</label><input type="number" id="f_pro" placeholder="—"></div>
         <div style="flex:2"><label>โน้ต (อาการ/พลังเทรน/กรดไหลย้อน ฯลฯ)</label><input id="f_note" placeholder="—"></div>
       </div>
+      <div id="calcHint" class="small" style="color:var(--accent);margin-top:6px;min-height:16px"></div>
       <div style="margin-top:12px;display:flex;gap:8px">
         <button class="btn" id="f_add">+ เพิ่มบันทึก</button>
         <button class="btn ghost sm" id="f_now">ตั้งเป็นเวลาปัจจุบัน</button>
@@ -415,8 +416,8 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
 });
 
 // ---------- HABITS ----------
-const HAB=[['water','💧 น้ำ 2.5L'],['protein','🍗 โปรตีนครบ'],['creatine','💊 ครีเอทีน'],
-  ['fishoil','🐟 ฟิชออยล์'],['vitc','🍊 Vit C'],['train','🏋️ เทรน'],['sleep','😴 นอน 7ชม'],['nojunk','🚫 ไม่กินขยะ']];
+const HAB=[['water','💧 น้ำ 2.5L'],['creatine','💊 ครีเอทีน'],['train','🏋️ เทรน'],
+  ['sleep','😴 นอน 7ชม'],['vitc','🍊 Vit C'],['nojunk','🚫 ไม่กินขยะ']];
 function renderHabits(){
   const all=load(K.habits,{}),t=todayStr(),day=all[t]||{};
   $('todayLabel').textContent='('+fmtD(t)+')';
@@ -430,7 +431,7 @@ function renderHabits(){
 // ---------- FOOD ----------
 function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';}
 $('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
-$('f_items').addEventListener('input',autoEggCalc);
+$('f_items').addEventListener('input',autoNutri);
 $('f_add').onclick=()=>{
   const items=$('f_items').value.trim();if(!items){alert('ใส่ว่ากินอะไรก่อนนะครับ');return;}
   const arr=load(K.food,[]);
@@ -455,16 +456,59 @@ const PRESETS=[
   {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
 function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
-// auto-คำนวณโปรตีน/แคลฯ จากจำนวนไข่ (เฉพาะมื้อที่เป็นไข่ล้วน) — ไข่ขาว 3.6g/17kcal, ไข่แดง 2.7g/55kcal
-function autoEggCalc(){
-  const txt=$('f_items').value;
-  if(!/ไข่ขาว|ไข่แดง/.test(txt))return;                       // ต้องมีไข่
-  if(/ข้าว|มัน|น้ำมัน|ไก่|ปลา|กล้วย|โยเกิร์ต|เวย์|บิงซู|กาแฟ|ต้มเลือด|ผัก/.test(txt))return; // ข้ามถ้ามีของอื่นปน
-  const w=+((txt.match(/ไข่ขาว\D*(\d+)/)||[])[1])||0;
-  const y=+((txt.match(/ไข่แดง\D*(\d+)/)||[])[1])||0;
-  if(w===0&&y===0)return;
-  $('f_pro').value=Math.round(w*3.6+y*2.7);
-  $('f_kcal').value=Math.round(w*17+y*55);
+// auto-คำนวณ kcal/โปรตีน จากเมนูที่พิมพ์จริง — ค่าต่อ 1 หน่วย/จาน (ฟอง/ชิ้น/ทัพพี/ลูก/ชต./เม็ด/จาน)
+// เรียงจาก "เฉพาะเจาะจง" ไป "กว้าง" (find คืนตัวแรกที่เจอ) · ค่าเป็น [regex, โปรตีน(g), kcal]
+const FOODS=[
+  // ไข่
+  [/ไข่ขาว/,3.6,17],[/ไข่แดง/,2.7,55],[/ไข่เจียว/,13,200],[/ไข่ดาว/,6,90],[/ไข่ต้ม|ไข่ลวก/,6,70],
+  // เมนูจาน/แกง (โปรตีน+เครื่องปรุง ไม่รวมข้าว)
+  [/กะเพรา|กระเพรา/,25,300],[/ผัดพริก|ผัดเผ็ด|พริกแกง/,22,280],[/ผัดกระเทียม|ผัดกระเทียมพริกไทย/,22,250],
+  [/ต้มเลือดหมู/,18,200],[/ต้มจืด|แกงจืด/,15,150],[/ต้มยำ/,15,160],
+  [/เขียวหวาน|แกงเผ็ด|พะแนง|มัสมั่น|กะหรี่/,18,300],[/แกงส้ม/,15,180],
+  [/ลาบ|น้ำตก/,22,250],[/ส้มตำ/,5,120],[/ยำ/,15,170],[/ผัดผัก/,12,160],
+  [/ทอด/,24,300],[/ย่าง|เผา/,24,230],[/นึ่ง/,24,200],[/ผัด/,18,250],
+  // โปรตีนเดี่ยว
+  [/อกไก่/,23,110],[/ไก่/,24,200],[/ปลา/,22,150],[/กุ้ง/,20,100],[/ทูน่า/,25,110],
+  [/หมูสับ/,18,200],[/หมู/,22,260],[/เนื้อ/,23,250],[/เต้าหู้/,8,80],
+  // คาร์บ
+  [/ข้าวกล้อง|ข้าวสวย|ข้าวสุก|ข้าวเหนียว|ข้าว(?!โพด|โอ๊ต)/,3,120],
+  [/มันหวาน|มันเทศ/,2,115],[/ขนมปัง/,4,80],[/เส้น|ก๋วยเตี๋ยว|พาสต้า/,8,300],
+  // ผลไม้
+  [/กล้วย/,1.3,105],[/แอปเปิ้ล|แอปเปิล/,0.5,95],[/ส้ม/,1,60],[/เบอร์รี/,1,50],
+  // ไขมัน/อาหารเสริม/เครื่องดื่ม
+  [/น้ำมันมะกอก/,0,119],[/ฟิชออยล์|น้ำมันปลา|น้ำมันตับปลา/,0,10],
+  [/อัลมอนด์|ถั่ว/,6,170],[/อะโวคาโด/,2,160],
+  [/กาแฟ/,0,5],[/เวย์|โปรตีนผง/,24,120],[/กรีกโยเกิร์ต|โยเกิร์ต/,10,100],[/นม(?!เปรี้ยว)/,8,120],
+  // ผัก / อื่น ๆ
+  [/ผัก|บรอกโคลี|ตำลึง|คะน้า|กวางตุ้ง/,2,30],
+  [/บิงซู/,8,800],
+  [/ครีเอทีน|เกลือแร่|วิตามิน|น้ำเปล่า|กาวิสคอน/,0,0],
+];
+function calcNutri(text){
+  text=text.replace(/7-?11/g,'');                       // ตัด "7-11" กันอ่านเป็นจำนวน
+  let pro=0,kcal=0,known=0,unknown=0;
+  for(const raw of text.split(/[\+,]/)){
+    const seg=raw.trim();if(!seg)continue;
+    if(/\(ระบุ/.test(seg)){unknown++;continue;}          // placeholder ยังไม่กรอก
+    const f=FOODS.find(x=>x[0].test(seg));
+    if(!f){unknown++;continue;}
+    const m=seg.match(/(\d+(?:\.\d+)?)/);
+    const q=m?parseFloat(m[1]):1;
+    pro+=f[1]*q;kcal+=f[2]*q;known++;
+  }
+  return {pro:Math.round(pro),kcal:Math.round(kcal),known,unknown};
+}
+function autoNutri(){
+  const hint=$('calcHint');
+  const r=calcNutri($('f_items').value);
+  if(r.known===0||r.unknown>0){
+    if(hint)hint.textContent=(r.known>0&&r.unknown>0)
+      ?'⚠️ บางเมนูประเมินไม่ได้ — แก้ kcal/โปรตีน เอง หรือถ่ายรูปให้ AI ช่วย'
+      :(r.unknown>0?'❓ ไม่รู้จักเมนูนี้ — กรอก kcal/โปรตีน เอง หรือถ่ายรูปให้ AI ช่วย':'');
+    return;
+  }
+  $('f_pro').value=r.pro;$('f_kcal').value=r.kcal;
+  if(hint)hint.textContent='🧮 ประเมินจากเมนูให้แล้ว ('+r.pro+'g / '+r.kcal+' kcal) — แก้เองได้';
 }
 let toastT;
 function toast(msg){const t=$('f_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',2200);}
@@ -473,7 +517,7 @@ function quickAdd(p){
     $('f_date').value=todayStr();$('f_time').value=nowHM();
     $('f_meal').value=p.meal;$('f_items').value=p.items;
     $('f_kcal').value=p.kcal||'';$('f_pro').value=p.pro||'';$('f_note').value='';
-    autoEggCalc();
+    autoNutri();
     const el=$('f_items');el.scrollIntoView({block:'center'});el.focus();
     const m=p.sel||'(ระบุเมนู)',i=p.items.indexOf(m);if(i>=0)el.setSelectionRange(i,i+m.length);
     toast(p.prefillMsg||'แก้รายละเอียดแล้วกด “+ เพิ่มบันทึก”');
@@ -491,7 +535,7 @@ function renderFood(){
   const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const totK=arr.reduce((s,x)=>s+(x.kcal||0),0),totP=arr.reduce((s,x)=>s+(x.pro||0),0);
   $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
-  if(typeof updateProtein==='function')updateProtein();
+  if(typeof updateTodayBars==='function')updateTodayBars();
   if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
   const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
   let html='';
@@ -564,33 +608,38 @@ function renderInbody(){
   $('inbodyTable').innerHTML=t;
 }
 
-// ---------- PROTEIN TODAY (คำนวณจากบันทึกอาหาร) ----------
+// ---------- หลอดสรุปวันนี้ (คำนวณจากบันทึกอาหาร) ----------
 const TARGET_PRO=165, TARGET_KCAL=2250;
 function foodToday(){const t=todayStr();return load(K.food,[]).filter(x=>x.date===t);}
-function updateProtein(){
-  const w=$('proteinWidget');if(!w)return;
-  const items=foodToday();
-  const pro=items.reduce((s,x)=>s+(x.pro||0),0);
-  const kcal=items.reduce((s,x)=>s+(x.kcal||0),0);
-  const pct=Math.min(100,Math.round(pro/TARGET_PRO*100));
-  const done=pro>=TARGET_PRO;
-  const color=done?'var(--accent)':pro>=TARGET_PRO*0.6?'var(--warn)':'var(--danger)';
-  w.innerHTML=`
+function progBar(emoji,label,val,target,unit){
+  const pct=Math.min(100,Math.round(val/target*100));
+  const done=val>=target, over=val>target*1.15;
+  const c=over?'var(--danger)':done?'var(--accent)':val>=target*0.6?'var(--warn)':'var(--blue)';
+  return `<div style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <b>🍗 โปรตีนวันนี้</b>
-      <span style="font-size:20px;font-weight:800;color:${color}">${pro}<span class="small muted"> / ${TARGET_PRO} g</span></span>
+      <b>${emoji} ${label}</b>
+      <span style="font-size:20px;font-weight:800;color:${c}">${val}<span class="small muted"> / ${target} ${unit}</span></span>
     </div>
-    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:999px;height:13px;overflow:hidden;margin:7px 0 5px">
-      <div style="height:100%;width:${pct}%;background:${color};transition:width .4s"></div>
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:999px;height:14px;overflow:hidden;margin:7px 0 5px">
+      <div style="height:100%;width:${pct}%;background:${c};transition:width .4s"></div>
     </div>
-    <div class="small muted">${done?'🎉 ครบเป้าแล้ว!':'ขาดอีก <b style="color:var(--text)">'+(TARGET_PRO-pro)+' g</b>'} · จาก ${items.length} มื้อที่บันทึก · พลังงาน ~${kcal} kcal${TARGET_KCAL?' / '+TARGET_KCAL:''}</div>
-    ${items.length===0?'<div class="small" style="color:var(--warn);margin-top:4px">ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกอาหาร” แตะปุ่มเพิ่มเร็ว ⚡</div>':''}`;
-  if(done){const all=load(K.habits,{}),t=todayStr();all[t]=all[t]||{};if(!all[t].protein){all[t].protein=true;save(K.habits,all);renderHabits();}}
+    <div class="small muted">${done?(over?'⚠️ เกินเป้าแล้ว':'🎉 ครบเป้าแล้ว!'):'ต้องกินอีก <b style="color:var(--text)">'+(target-val)+' '+unit+'</b>'}</div>
+  </div>`;
+}
+function updateTodayBars(){
+  const w=$('todayBars');if(!w)return;
+  const items=foodToday();
+  const pro=Math.round(items.reduce((s,x)=>s+(x.pro||0),0));
+  const kcal=Math.round(items.reduce((s,x)=>s+(x.kcal||0),0));
+  w.innerHTML=progBar('🍗','โปรตีน',pro,TARGET_PRO,'g')+progBar('🔥','พลังงาน',kcal,TARGET_KCAL,'kcal')+
+    (items.length===0
+      ?'<div class="small" style="color:var(--warn)">ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกอาหาร” แตะปุ่มเพิ่มเร็ว ⚡</div>'
+      :'<div class="small muted">จาก '+items.length+' มื้อที่บันทึกวันนี้</div>');
 }
 
 // ---------- DASHBOARD ----------
 function renderDash(){
-  renderHabits();updateProtein();
+  renderHabits();updateTodayBars();
   const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   if(!arr.length)return;
   const last=arr[arr.length-1],prev=arr.length>1?arr[arr.length-2]:null;
