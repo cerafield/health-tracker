@@ -111,7 +111,7 @@
   <nav class="tabs">
     <button data-tab="dash" class="active">📊 ภาพรวม</button>
     <button data-tab="plan">📋 กิจวัตร &amp; แผน</button>
-    <button data-tab="food">🍽️ บันทึกอาหาร</button>
+    <button data-tab="food">📓 บันทึกวัน</button>
     <button data-tab="inbody">📈 ผล InBody</button>
     <button data-tab="export">📤 Export / Backup</button>
   </nav>
@@ -447,8 +447,8 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
 });
 
 // ---------- HABITS ----------
-const HAB=[['water','💧 น้ำ 2.5L'],['creatine','💊 ครีเอทีน'],['train','🏋️ เทรน'],
-  ['sleep','😴 นอน 7ชม'],['vitc','🍊 Vit C'],['nojunk','🚫 ไม่กินขยะ']];
+const HAB=[['water','💧 น้ำ 2.5L'],['creatine','💊 ครีเอทีน'],
+  ['sleep','😴 นอน 7ชม'],['vitc','🍊 Vit C'],['nojunk','🚫 ไม่กินขยะ'],['gerd','✅ ไม่กรดไหลย้อน']];
 function renderHabits(){
   const all=load(K.habits,{}),t=todayStr(),day=all[t]||{};
   $('todayLabel').textContent='('+fmtD(t)+')';
@@ -461,9 +461,10 @@ function renderHabits(){
 
 // ---------- FOOD ----------
 let editId=null,nutLocked=false;
-function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';editId=null;nutLocked=false;$('f_add').textContent='+ เพิ่มบันทึก';if($('calcHint'))$('calcHint').textContent='';if($('mealHint'))$('mealHint').textContent='';}
+function updateMealHint(t){const h=$('mealHint');if(h)h.textContent=t?'📍 '+mealFromTime(t):'';}
+function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();const hm=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_time').value=hm;$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';editId=null;nutLocked=false;$('f_add').textContent='+ เพิ่มบันทึก';if($('calcHint'))$('calcHint').textContent='';updateMealHint(hm);}
 $('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
-$('f_time').addEventListener('change',()=>{const h=$('mealHint');if(h)h.textContent='📍 '+mealFromTime($('f_time').value);});
+$('f_time').addEventListener('change',()=>updateMealHint($('f_time').value));
 $('f_items').addEventListener('input',autoNutri);
 ['f_pro','f_kcal'].forEach(id=>$(id).addEventListener('input',()=>{nutLocked=true;}));
 $('f_calc').onclick=()=>{nutLocked=false;autoNutri();};
@@ -611,7 +612,7 @@ let toastT;
 function toast(msg){const t=$('f_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',2200);}
 function quickAdd(p){
   if(p.prefill){
-    $('f_date').value=todayStr();$('f_time').value=nowHM();
+    $('f_date').value=todayStr();const _hm=nowHM();$('f_time').value=_hm;updateMealHint(_hm);
     $('f_items').value=p.items;
     $('f_kcal').value=p.kcal||'';$('f_pro').value=p.pro||'';$('f_note').value='';
     nutLocked=false;autoNutri();
@@ -630,7 +631,6 @@ function renderPresets(){
 }
 function renderFood(){
   const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  const totK=arr.reduce((s,x)=>s+(x.kcal||0),0),totP=arr.reduce((s,x)=>s+(x.pro||0),0);
   $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
   if(typeof updateTodayBars==='function')updateTodayBars();
   if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
@@ -715,9 +715,10 @@ const TRAIN_PRESETS=[
   {label:'🏊 ว่ายน้ำ',   act:'ว่ายน้ำ'},
   {label:'🏋️ วิดพื้น ✏️', act:'วิดพื้น 35 ที', prefill:true, sel:'35'},
 ];
-let toastTrT;
+let toastTrT,editTrainId=null;
 function toastTrain(msg){const t=$('tr_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastTrT);toastTrT=setTimeout(()=>t.style.display='none',2200);}
-function resetTrainForm(){$('tr_date').value=todayStr();const n=new Date();$('tr_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('tr_act').value='';$('tr_note').value='';}
+function resetTrainForm(){$('tr_date').value=todayStr();const n=new Date();$('tr_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('tr_act').value='';$('tr_note').value='';editTrainId=null;$('tr_add').textContent='+ บันทึกเทรน';}
+function editTrain(id){const x=load(K.train,[]).find(e=>e.id===id);if(!x)return;$('tr_date').value=x.date;$('tr_time').value=x.time;$('tr_act').value=x.act;$('tr_note').value=x.note||'';editTrainId=id;$('tr_add').textContent='💾 บันทึกการแก้ไข';$('tr_act').scrollIntoView({block:'center'});$('tr_act').focus();}
 function quickTrain(p){
   if(p.prefill){
     $('tr_date').value=todayStr();$('tr_time').value=nowHM();
@@ -733,9 +734,14 @@ function quickTrain(p){
 }
 $('tr_add').onclick=()=>{
   const act=$('tr_act').value.trim();if(!act){alert('ใส่กิจกรรมก่อนนะครับ');return;}
-  const arr=load(K.train,[]);
-  arr.push({id:Date.now(),date:$('tr_date').value,time:$('tr_time').value,act,note:$('tr_note').value.trim()});
-  save(K.train,arr);resetTrainForm();renderTrain();toastTrain(act+' บันทึกแล้ว');
+  let arr=load(K.train,[]);
+  if(editTrainId){
+    arr=arr.map(x=>x.id===editTrainId?{...x,date:$('tr_date').value,time:$('tr_time').value,act,note:$('tr_note').value.trim()}:x);
+    save(K.train,arr);resetTrainForm();renderTrain();toastTrain(act+' แก้ไขแล้ว');
+  }else{
+    arr.push({id:Date.now(),date:$('tr_date').value,time:$('tr_time').value,act,note:$('tr_note').value.trim()});
+    save(K.train,arr);resetTrainForm();renderTrain();toastTrain(act+' บันทึกแล้ว');
+  }
 };
 $('tr_now').onclick=()=>{const n=new Date();$('tr_date').value=todayStr();$('tr_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
 function delTrain(id){if(!confirm('ลบบันทึกเทรนนี้?'))return;save(K.train,load(K.train,[]).filter(x=>x.id!==id));renderTrain();}
@@ -756,7 +762,7 @@ function renderTrain(){
       html+=`<tr>
         <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
         <td><b>${x.act}</b>${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-        <td style="white-space:nowrap"><button class="btn del sm" onclick="delTrain(${x.id})">ลบ</button></td>
+        <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editTrain(${x.id})">แก้</button> <button class="btn del sm" onclick="delTrain(${x.id})">ลบ</button></td>
       </tr>`;
     });
     html+='</table>';
@@ -805,6 +811,11 @@ function renderDash(){
   const first=arr[0];
   const setStat=(id,val,unit='')=>{$(id).textContent=(val??'—')+(val!=null?unit:'');};
   setStat('d_weight',last.weight);setStat('d_bf',last.bf,'%');setStat('d_smm',last.smm);setStat('d_vis',last.vis);
+  // update goal table "ตอนนี้" column
+  if($('p_bf_now'))$('p_bf_now').textContent=(last.bf??'—')+(last.bf!=null?'%':'');
+  if($('p_smm_now'))$('p_smm_now').textContent=(last.smm??'—')+(last.smm!=null?' kg':'');
+  if($('p_w_now'))$('p_w_now').textContent=(last.weight??'—')+(last.weight!=null?' kg':'');
+  if($('p_fat_now')&&last.weight!=null&&last.bf!=null)$('p_fat_now').textContent=(last.weight*last.bf/100).toFixed(1)+' kg';
   const delta=(id,cur,pre,inv=false,unit='')=>{
     if(pre==null||cur==null){$(id).textContent='';return;}
     const diff=+(cur-pre).toFixed(1);const good=inv?diff<0:diff>0;
@@ -861,8 +872,7 @@ $('upBackup').onchange=e=>{
 };
 $('clearAll').onclick=()=>{if(!confirm('ล้างข้อมูลทั้งหมด (อาหาร+InBody+นิสัย)? ลบแล้วกู้ไม่ได้'))return;
   if(!confirm('แน่ใจนะครับ? แนะนำกด Backup ก่อน'))return;
-  localStorage.removeItem(K.food);localStorage.removeItem(K.inbody);localStorage.removeItem(K.habits);
-  localStorage.removeItem(K.seed);location.reload();};
+  [K.food,K.inbody,K.habits,K.train,K.seed].forEach(k=>localStorage.removeItem(k));location.reload();};
 
 // ---------- init ----------
 function renderAll(){renderDash();renderFood();renderInbody();renderPresets();renderTrainPresets();renderTrain();}
