@@ -144,6 +144,7 @@
 
       <div class="card">
         <h2>✅ เช็กลิสต์วันนี้ <span class="small muted" id="todayLabel"></span></h2>
+        <div id="proteinWidget" style="margin-bottom:14px"></div>
         <div id="habits" class="grid" style="grid-template-columns:1fr 1fr;gap:8px"></div>
         <h3>เพิ่มบันทึกอาหารเร็ว</h3>
         <p class="small muted">ไปที่แท็บ “บันทึกอาหาร” เพื่อจดมื้อ/เวลา แล้วใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
@@ -440,16 +441,16 @@ function delFood(id){if(!confirm('ลบบันทึกนี้?'))return;sa
 
 // ---------- quick-add presets (เมนูจริงของ Tony) ----------
 const PRESETS=[
-  {label:'🥚 ไข่เช้า',meal:'เช้า (ไข่)',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25},
-  {label:'☕ กาแฟดำ',meal:'เช้า (ไข่)',items:'กาแฟดำไม่ใส่น้ำตาล'},
-  {label:'🍱 มื้อแม่ทำ',meal:'มื้อแม่ทำ 10โมง',items:'กับข้าวแม่ทำ (โปรตีน+ผัก) + ข้าวกล้อง 1.5 ทัพพี + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:50},
-  {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:23},
-  {label:'🍠 มื้อก่อนเทรน',meal:'ก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25},
-  {label:'🍌 กล้วยก่อนเทรน',meal:'ก่อนเทรน',items:'กล้วย 1 ลูก'},
-  {label:'🍲 ต้มเลือดหมู+ข้าว',meal:'หลังเทรน',items:'ต้มเลือดหมู + ข้าว (มื้อหลังเทรน)',pro:30},
-  {label:'🐟 อกไก่/ปลา+ข้าว',meal:'หลังเทรน',items:'อกไก่/ปลา + ข้าว + ผัก + ฟิชออยล์ 1 เม็ด',pro:40},
-  {label:'🥛 เวย์/กรีกโยเกิร์ต',meal:'เย็น/ดึก',items:'เวย์โปรตีน / กรีกโยเกิร์ต',pro:25},
-  {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)'}
+  {label:'🥚 ไข่เช้า',meal:'เช้า (ไข่)',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25,kcal:230},
+  {label:'☕ กาแฟดำ',meal:'เช้า (ไข่)',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
+  {label:'🍱 มื้อแม่ทำ',meal:'มื้อแม่ทำ 10โมง',items:'กับข้าวแม่ทำ (โปรตีน+ผัก) + ข้าวกล้อง 1.5 ทัพพี + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:50,kcal:600},
+  {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:23,kcal:110},
+  {label:'🍠 มื้อก่อนเทรน',meal:'ก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25,kcal:320},
+  {label:'🍌 กล้วยก่อนเทรน',meal:'ก่อนเทรน',items:'กล้วย 1 ลูก',kcal:105},
+  {label:'🍲 ต้มเลือดหมู+ข้าว',meal:'หลังเทรน',items:'ต้มเลือดหมู + ข้าว (มื้อหลังเทรน)',pro:30,kcal:350},
+  {label:'🐟 อกไก่/ปลา+ข้าว',meal:'หลังเทรน',items:'อกไก่/ปลา + ข้าว + ผัก + ฟิชออยล์ 1 เม็ด',pro:40,kcal:420},
+  {label:'🥛 เวย์/กรีกโยเกิร์ต',meal:'เย็น/ดึก',items:'เวย์โปรตีน / กรีกโยเกิร์ต',pro:25,kcal:150},
+  {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
 function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
 let toastT;
@@ -467,6 +468,7 @@ function renderFood(){
   const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const totK=arr.reduce((s,x)=>s+(x.kcal||0),0),totP=arr.reduce((s,x)=>s+(x.pro||0),0);
   $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
+  if(typeof updateProtein==='function')updateProtein();
   if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
   const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
   let html='';
@@ -539,9 +541,33 @@ function renderInbody(){
   $('inbodyTable').innerHTML=t;
 }
 
+// ---------- PROTEIN TODAY (คำนวณจากบันทึกอาหาร) ----------
+const TARGET_PRO=165, TARGET_KCAL=2250;
+function foodToday(){const t=todayStr();return load(K.food,[]).filter(x=>x.date===t);}
+function updateProtein(){
+  const w=$('proteinWidget');if(!w)return;
+  const items=foodToday();
+  const pro=items.reduce((s,x)=>s+(x.pro||0),0);
+  const kcal=items.reduce((s,x)=>s+(x.kcal||0),0);
+  const pct=Math.min(100,Math.round(pro/TARGET_PRO*100));
+  const done=pro>=TARGET_PRO;
+  const color=done?'var(--accent)':pro>=TARGET_PRO*0.6?'var(--warn)':'var(--danger)';
+  w.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <b>🍗 โปรตีนวันนี้</b>
+      <span style="font-size:20px;font-weight:800;color:${color}">${pro}<span class="small muted"> / ${TARGET_PRO} g</span></span>
+    </div>
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:999px;height:13px;overflow:hidden;margin:7px 0 5px">
+      <div style="height:100%;width:${pct}%;background:${color};transition:width .4s"></div>
+    </div>
+    <div class="small muted">${done?'🎉 ครบเป้าแล้ว!':'ขาดอีก <b style="color:var(--text)">'+(TARGET_PRO-pro)+' g</b>'} · จาก ${items.length} มื้อที่บันทึก · พลังงาน ~${kcal} kcal${TARGET_KCAL?' / '+TARGET_KCAL:''}</div>
+    ${items.length===0?'<div class="small" style="color:var(--warn);margin-top:4px">ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกอาหาร” แตะปุ่มเพิ่มเร็ว ⚡</div>':''}`;
+  if(done){const all=load(K.habits,{}),t=todayStr();all[t]=all[t]||{};if(!all[t].protein){all[t].protein=true;save(K.habits,all);renderHabits();}}
+}
+
 // ---------- DASHBOARD ----------
 function renderDash(){
-  renderHabits();
+  renderHabits();updateProtein();
   const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   if(!arr.length)return;
   const last=arr[arr.length-1],prev=arr.length>1?arr[arr.length-2]:null;
