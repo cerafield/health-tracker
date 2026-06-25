@@ -85,6 +85,8 @@
   .chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
     border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;user-select:none}
   .chip input{width:auto}
+  .chip-food{background:#243a2e;border:1px solid #3a7a55;color:var(--text);transition:.15s}
+  .chip-food:hover{background:#2e4d38;border-color:var(--accent)}
   .chartbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
   .legend{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
@@ -462,13 +464,11 @@ const PRESETS=[
   {label:'☕ กาแฟดำ',meal:'อื่น ๆ',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
   {label:'🍱 มื้อแม่ทำ ✏️',meal:'มื้อแม่ทำ 10โมง',items:'แม่ทำ: (ระบุเมนู) + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:45,kcal:450,prefill:true,sel:'(ระบุเมนู)',prefillMsg:'พิมพ์ว่าแม่ทำอะไร แล้วกด “+ เพิ่มบันทึก” (ถ่ายรูปให้ AI ช่วยประเมิน → เขียนทับโปรตีน/แคลฯ ได้)'},
   {label:'🦐 สะตอผัดกุ้ง ✏️',meal:'มื้อแม่ทำ 10โมง',items:'สะตอผัดกุ้ง (กุ้ง 120g + สะตอ 100 กรัม + น้ำมัน 1 ชต.)',prefill:true,sel:'120g',prefillMsg:'ปรับน้ำหนักกุ้ง/สะตอได้ แล้วกด “+ เพิ่มบันทึก”'},
-  {label:'🍚 ข้าวกล้อง 1 ทัพพี',meal:'อื่น ๆ',items:'ข้าวกล้อง 1 ทัพพี',pro:3,kcal:120},
+  {label:'🍚 ข้าวกล้อง ✏️',meal:'อื่น ๆ',items:'ข้าวกล้อง 150 กรัม',prefill:true,sel:'150',prefillMsg:'ระบุกรัมที่กิน แล้วกด "+ เพิ่มบันทึก"'},
   {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:18,kcal:90},
   {label:'🍠 มื้อก่อนเทรน',meal:'ก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25,kcal:320},
   {label:'🍌 กล้วยก่อนเทรน',meal:'ก่อนเทรน',items:'กล้วย 1 ลูก',kcal:105},
-  {label:'🍲 ต้มเลือดหมู+ข้าว',meal:'หลังเทรน',items:'ต้มเลือดหมู + ข้าว (มื้อหลังเทรน)',pro:30,kcal:350},
-  {label:'🐟 อกไก่/ปลา+ข้าว',meal:'หลังเทรน',items:'อกไก่/ปลา + ข้าว + ผัก + ฟิชออยล์ 1 เม็ด',pro:40,kcal:420},
-  {label:'🥛 เวย์/กรีกโยเกิร์ต',meal:'เย็น/ดึก',items:'เวย์โปรตีน / กรีกโยเกิร์ต',pro:25,kcal:150},
+  {label:'🍲 ต้มเลือดหมู',meal:'หลังเทรน',items:'ต้มเลือดหมู',pro:18,kcal:200},
   {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
 function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
@@ -596,7 +596,7 @@ function quickAdd(p){
   save(K.food,arr);renderFood();toast(p.items.slice(0,38)+(p.items.length>38?'…':'')+' ('+nowHM()+')');
 }
 function renderPresets(){
-  $('f_presets').innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-p="${i}" style="cursor:pointer">${p.label}</button>`).join('');
+  $('f_presets').innerHTML=PRESETS.map((p,i)=>`<button class="chip chip-food" data-p="${i}">${p.label}</button>`).join('');
   document.querySelectorAll('#f_presets button').forEach(b=>b.onclick=()=>quickAdd(PRESETS[+b.dataset.p]));
 }
 function renderFood(){
