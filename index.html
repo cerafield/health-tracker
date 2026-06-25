@@ -676,9 +676,11 @@ function renderFood(){
     html+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px">${fmtD(d)}
       <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g โปรตีน':''}</span></h3><table>`;
     rows.forEach(x=>{
+      const ml=mealFromTime(x.time);
+      const mc=/เทรน/.test(ml)?'tr':/ดึก/.test(ml)?'no':'rest';
       html+=`<tr>
         <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
-        <td style="white-space:nowrap"><span class="pill rest">${x.meal}</span></td>
+        <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
         <td>${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
         <td style="white-space:nowrap" class="small muted">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️ ใส่เลข</span>':''}${x.kcal?x.kcal+'kcal':''}${x.pro?'<br>'+x.pro+'g P':''}</td>
         <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
@@ -894,7 +896,7 @@ $('genReport').onclick=()=>{
   ib.forEach(x=>{r+=`${x.date} | นน. ${x.weight??'-'}kg | %ไขมัน ${x.bf??'-'} | SMM ${x.smm??'-'}kg | ช่องท้อง ${x.vis??'-'} | เอว ${x.waist??'-'} | score ${x.score??'-'} ${x.note?'('+x.note+')':''}\n`;});
   r+='\n--- บันทึกอาหาร ---\n';
   let cd='';
-  food.forEach(x=>{if(x.date!==cd){cd=x.date;r+=`\n[${x.date}]\n`;}r+=`  ${x.time} ${x.meal}: ${x.items}${x.kcal?' ('+x.kcal+'kcal':''}${x.pro?(x.kcal?', ':' (')+x.pro+'g P':''}${(x.kcal||x.pro)?')':''}${x.note?'  >> '+x.note:''}\n`;});
+  food.forEach(x=>{if(x.date!==cd){cd=x.date;r+=`\n[${x.date}]\n`;}r+=`  ${x.time} ${mealFromTime(x.time)}: ${x.items}${x.kcal?' ('+x.kcal+'kcal':''}${x.pro?(x.kcal?', ':' (')+x.pro+'g P':''}${(x.kcal||x.pro)?')':''}${x.note?'  >> '+x.note:''}\n`;});
   const train=load(K.train,[]).slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   r+='\n--- บันทึกเทรน ---\n';
   let ct='';
