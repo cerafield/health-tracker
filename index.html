@@ -1120,11 +1120,20 @@ $('fbConnect').onclick=fbConnect;
 $('fbDisconnect').onclick=fbDisconnect;
 $('fbPushNow').onclick=()=>{if(!_fbDb){alert('ยังไม่ได้เชื่อมต่อ');return;}fbSetStatus('กำลัง push...');fbPush();};
 
-// auto-reconnect Firebase if config saved
+// auto-connect Firebase (hardcoded config)
 (function(){
-  const saved=localStorage.getItem('ht_fb_cfg');
-  if(!saved)return;
-  $('fbConfigInput').value=saved;
+  const _cfg={
+    apiKey:"AIzaSyDW7mdamTOtmmiYXin54idn6KXGaX2dZi8",
+    authDomain:"health-tracker-tony.firebaseapp.com",
+    databaseURL:"https://health-tracker-tony-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"health-tracker-tony",
+    storageBucket:"health-tracker-tony.firebasestorage.app",
+    messagingSenderId:"197485135997",
+    appId:"1:197485135997:web:45791e8f8e00b0daf1c914",
+    measurementId:"G-PPLWQTFS2P"
+  };
+  const cfgStr=JSON.stringify(_cfg,null,2);
+  $('fbConfigInput').value=cfgStr;
   fbConnect();
 })();
 
