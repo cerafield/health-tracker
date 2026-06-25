@@ -430,6 +430,7 @@ function renderHabits(){
 // ---------- FOOD ----------
 function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';}
 $('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
+$('f_items').addEventListener('input',autoEggCalc);
 $('f_add').onclick=()=>{
   const items=$('f_items').value.trim();if(!items){alert('ใส่ว่ากินอะไรก่อนนะครับ');return;}
   const arr=load(K.food,[]);
@@ -453,6 +454,17 @@ const PRESETS=[
   {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
 function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+// auto-คำนวณโปรตีน/แคลฯ จากจำนวนไข่ (เฉพาะมื้อที่เป็นไข่ล้วน) — ไข่ขาว 3.6g/17kcal, ไข่แดง 2.7g/55kcal
+function autoEggCalc(){
+  const txt=$('f_items').value;
+  if(!/ไข่ขาว|ไข่แดง/.test(txt))return;                       // ต้องมีไข่
+  if(/ข้าว|มัน|น้ำมัน|ไก่|ปลา|กล้วย|โยเกิร์ต|เวย์|บิงซู|กาแฟ|ต้มเลือด|ผัก/.test(txt))return; // ข้ามถ้ามีของอื่นปน
+  const w=+((txt.match(/ไข่ขาว\D*(\d+)/)||[])[1])||0;
+  const y=+((txt.match(/ไข่แดง\D*(\d+)/)||[])[1])||0;
+  if(w===0&&y===0)return;
+  $('f_pro').value=Math.round(w*3.6+y*2.7);
+  $('f_kcal').value=Math.round(w*17+y*55);
+}
 let toastT;
 function toast(msg){const t=$('f_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',2200);}
 function quickAdd(p){
@@ -460,6 +472,7 @@ function quickAdd(p){
     $('f_date').value=todayStr();$('f_time').value=nowHM();
     $('f_meal').value=p.meal;$('f_items').value=p.items;
     $('f_kcal').value=p.kcal||'';$('f_pro').value=p.pro||'';$('f_note').value='';
+    autoEggCalc();
     const el=$('f_items');el.scrollIntoView({block:'center'});el.focus();
     const m=p.sel||'(ระบุเมนู)',i=p.items.indexOf(m);if(i>=0)el.setSelectionRange(i,i+m.length);
     toast(p.prefillMsg||'แก้รายละเอียดแล้วกด “+ เพิ่มบันทึก”');
