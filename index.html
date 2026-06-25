@@ -298,6 +298,38 @@
 
   <!-- ===================== FOOD LOG ===================== -->
   <section class="tab" id="food">
+
+    <details style="margin-bottom:10px">
+      <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 16px;font-weight:600">
+        <span>📋 แผนวันนี้ &amp; ทำไปแล้ว</span>
+        <span id="planRefSnip" class="small muted" style="font-weight:400">แตะเพื่อดู</span>
+      </summary>
+      <div style="background:var(--panel);border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;padding:14px 16px;margin-top:-1px">
+        <div class="grid g2" style="gap:14px;margin-bottom:14px">
+          <div>
+            <div class="small muted" style="margin-bottom:6px">วันนี้ทำไปแล้ว</div>
+            <div id="miniTodaySummary"><span class="small muted">ยังไม่ได้บันทึกวันนี้</span></div>
+          </div>
+          <div>
+            <div class="small muted" style="margin-bottom:6px">เป้ารายวัน</div>
+            <div class="small">🔵 วันเทรน: <b>P 165g / 2,250 kcal</b></div>
+            <div class="small" style="margin-top:4px">⚪ วันพัก: <b>P 165g / 1,950 kcal</b></div>
+          </div>
+        </div>
+        <div class="small muted" style="font-weight:600;margin-bottom:6px">⏱️ Timeline วันเทรน</div>
+        <table style="font-size:12px">
+          <tr><td style="color:var(--accent);font-weight:700;width:48px;padding:5px 8px">06:30</td><td style="padding:5px 8px">ไข่ขาว 4 + ไข่แดง 1 · Vit C · กาแฟดำ (หลังอาหาร)</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">10:00</td><td style="padding:5px 8px">มื้อใหญ่แม่ทำ + ข้าวกล้อง 1.5 ทัพพี · น้ำมันมะกอก + ฟิชออยล์ 2 เม็ด</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">13:00</td><td style="padding:5px 8px">อกไก่ 1–2 ชิ้น + ผลไม้ 1 ชิ้น</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">15:00</td><td style="padding:5px 8px">ก่อนเทรน: ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">16:30</td><td style="padding:5px 8px">กล้วย 1 ลูก (ถ้าหิว)</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">19:30</td><td style="padding:5px 8px">หลังเทรน: ต้มเลือดหมู หรือ อกไก่/ปลา + ผัก · ฟิชออยล์ 1</td></tr>
+          <tr><td style="color:var(--accent);font-weight:700;padding:5px 8px">21:30</td><td style="padding:5px 8px">(ถ้าหิว) กรีกโยเกิร์ต / เวย์โปรตีน</td></tr>
+        </table>
+        <div class="small muted" style="margin-top:8px">วันพัก: ตัด 13:00 + 15:00 + กล้วย ออก · ลดข้าวลง · โปรตีนคงเดิม 165g</div>
+      </div>
+    </details>
+
     <div class="card">
       <h2>🍽️ บันทึกอาหาร</h2>
       <h3 style="margin-top:0">⚡ เพิ่มเร็ว <span class="small muted">— แตะปุ่ม = บันทึกทันทีตามเวลาปัจจุบัน</span></h3>
@@ -490,16 +522,16 @@ function editFood(id){
 
 // ---------- quick-add presets (เมนูจริงของ Tony) ----------
 const PRESETS=[
-  {label:'🥚 ไข่เช้า ✏️',meal:'เช้า (ไข่)',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25,kcal:230,prefill:true,sel:'3',prefillMsg:'ปรับจำนวนไข่/โปรตีน/แคลฯ ได้ แล้วกด “+ เพิ่มบันทึก”'},
-  {label:'☕ กาแฟดำ',meal:'อื่น ๆ',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
-  {label:'🍱 มื้อแม่ทำ ✏️',meal:'มื้อแม่ทำ 10โมง',items:'แม่ทำ: (ระบุเมนู) + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:45,kcal:450,prefill:true,sel:'(ระบุเมนู)',prefillMsg:'พิมพ์ว่าแม่ทำอะไร แล้วกด “+ เพิ่มบันทึก” (ถ่ายรูปให้ AI ช่วยประเมิน → เขียนทับโปรตีน/แคลฯ ได้)'},
-  {label:'🦐 สะตอผัดกุ้ง ✏️',meal:'มื้อแม่ทำ 10โมง',items:'สะตอผัดกุ้ง (กุ้ง 120g + สะตอ 100 กรัม + น้ำมัน 1 ชต.)',prefill:true,sel:'120g',prefillMsg:'ปรับน้ำหนักกุ้ง/สะตอได้ แล้วกด “+ เพิ่มบันทึก”'},
-  {label:'🍚 ข้าวกล้อง ✏️',meal:'อื่น ๆ',items:'ข้าวกล้อง 150 กรัม',prefill:true,sel:'150',prefillMsg:'ระบุกรัมที่กิน แล้วกด "+ เพิ่มบันทึก"'},
-  {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:18,kcal:90},
-  {label:'🍠 มื้อก่อนเทรน',meal:'ก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25,kcal:320},
-  {label:'🍌 กล้วยก่อนเทรน',meal:'ก่อนเทรน',items:'กล้วย 1 ลูก',kcal:105},
-  {label:'🍲 ต้มเลือดหมู',meal:'หลังเทรน',items:'ต้มเลือดหมู',pro:18,kcal:200},
-  {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
+  {label:'🥚 ไข่เช้า ✏️',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25,kcal:230,prefill:true,sel:'3',prefillMsg:'ปรับจำนวนไข่/โปรตีน/แคลฯ ได้ แล้วกด “+ เพิ่มบันทึก”'},
+  {label:'☕ กาแฟดำ',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
+  {label:'🍱 มื้อแม่ทำ ✏️',items:'แม่ทำ: (ระบุเมนู) + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:45,kcal:450,prefill:true,sel:'(ระบุเมนู)',prefillMsg:'พิมพ์ว่าแม่ทำอะไร แล้วกด “+ เพิ่มบันทึก” (ถ่ายรูปให้ AI ช่วยประเมิน → เขียนทับโปรตีน/แคลฯ ได้)'},
+  {label:'🦐 สะตอผัดกุ้ง ✏️',items:'สะตอผัดกุ้ง (กุ้ง 120g + สะตอ 100 กรัม + น้ำมัน 1 ชต.)',prefill:true,sel:'120g',prefillMsg:'ปรับน้ำหนักกุ้ง/สะตอได้ แล้วกด “+ เพิ่มบันทึก”'},
+  {label:'🍚 ข้าวกล้อง ✏️',items:'ข้าวกล้อง 150 กรัม',prefill:true,sel:'150',prefillMsg:'ระบุกรัมที่กิน แล้วกด “+ เพิ่มบันทึก”'},
+  {label:'🍗 อกไก่ 7-11 (1)',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:18,kcal:90},
+  {label:'🍠 มื้อก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25,kcal:320},
+  {label:'🍌 กล้วยก่อนเทรน',items:'กล้วย 1 ลูก',kcal:105},
+  {label:'🍲 ต้มเลือดหมู',items:'ต้มเลือดหมู',pro:18,kcal:200},
+  {label:'🍧 บิงซู After You',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
 function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
 // auto-คำนวณ kcal/โปรตีน — รองรับ 3 หน่วย:
@@ -633,6 +665,7 @@ function renderFood(){
   const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
   if(typeof updateTodayBars==='function')updateTodayBars();
+  if(typeof updateMiniSummary==='function')updateMiniSummary();
   if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
   const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
   let html='';
@@ -796,11 +829,23 @@ function updateTodayBars(){
   const trainSummary=trains.length?'🏋️ เทรนวันนี้: '+trains.map(x=>x.act).join(' · '):'';
   w.innerHTML=progBar('🍗','โปรตีน',pro,TARGET_PRO,'g')+progBar('🔥','พลังงาน',kcal,TARGET_KCAL,'kcal')+
     (items.length===0
-      ?'<div class=”small” style=”color:var(--warn)”>ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกอาหาร” แตะปุ่มเพิ่มเร็ว ⚡</div>'
+      ?'<div class=”small” style=”color:var(--warn)”>ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกวัน” แตะปุ่มเพิ่มเร็ว ⚡</div>'
       :'<div class=”small muted”>จาก '+items.length+' รายการที่บันทึกวันนี้</div>')+
     (trainSummary?'<div class=”small” style=”color:var(--accent);margin-top:6px”>'+trainSummary+'</div>':'');
 }
 function updateTodayTrain(){if(typeof updateTodayBars==='function')updateTodayBars();}
+function updateMiniSummary(){
+  const items=foodToday();
+  const pro=Math.round(items.reduce((s,x)=>s+(x.pro||0),0));
+  const kcal=Math.round(items.reduce((s,x)=>s+(x.kcal||0),0));
+  const el=$('miniTodaySummary');if(!el)return;
+  if(!items.length){el.innerHTML='<span class="small muted">ยังไม่ได้บันทึกวันนี้</span>';$('planRefSnip').textContent='แตะเพื่อดู';return;}
+  const pc=pro>=165?'var(--accent)':pro>=100?'var(--warn)':'var(--blue)';
+  const kc=kcal>=2250?'var(--accent)':kcal>=1500?'var(--warn)':'var(--blue)';
+  el.innerHTML=`<span style="font-size:22px;font-weight:800;color:${pc}">${pro}<span class="small muted"> / 165g P</span></span><br>
+    <span style="font-size:22px;font-weight:800;color:${kc}">${kcal}<span class="small muted"> / 2,250 kcal</span></span>`;
+  const snip=$('planRefSnip');if(snip)snip.textContent=`P ${pro}g · ${kcal} kcal`;
+}
 
 // ---------- DASHBOARD ----------
 function renderDash(){
