@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tony's Health Tracker — Cut to 14%</title>
+<style>
+  :root{
+    --bg:#0e1512; --panel:#16201c; --panel2:#1d2a24; --line:#2a3a32;
+    --text:#e8f0ec; --muted:#90a89c; --accent:#36d399; --accent2:#22a06b;
+    --warn:#f6b94a; --danger:#f56565; --blue:#5bc0eb; --purple:#a78bfa;
+    --radius:14px; --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,"Segoe UI","Helvetica Neue","Noto Sans Thai",Tahoma,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%,#16271f 0%,var(--bg) 60%);
+    color:var(--text); line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent)}
+  .wrap{max-width:1040px;margin:0 auto;padding:20px 16px 80px}
+  header.hero{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;
+    background:linear-gradient(135deg,#1c2c24,#14201b);border:1px solid var(--line);
+    border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+  .hero h1{margin:0;font-size:20px;letter-spacing:.3px}
+  .hero .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .badge{display:inline-block;background:var(--accent);color:#062418;font-weight:700;
+    padding:3px 10px;border-radius:999px;font-size:12px}
+  .phase{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px}
+  .phase b{color:var(--accent)}
+
+  nav.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0}
+  nav.tabs button{background:var(--panel);color:var(--muted);border:1px solid var(--line);
+    padding:9px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;transition:.15s}
+  nav.tabs button:hover{color:var(--text)}
+  nav.tabs button.active{background:var(--accent);color:#062418;border-color:var(--accent)}
+
+  section.tab{display:none;animation:fade .25s}
+  section.tab.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:720px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.g3,.g4{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h3{margin:18px 0 8px;font-size:14px;color:var(--accent)}
+  .stat .num{font-size:26px;font-weight:800;line-height:1}
+  .stat .lbl{color:var(--muted);font-size:12px;margin-top:6px}
+  .stat .delta{font-size:12px;margin-top:4px}
+  .up{color:var(--accent)} .down{color:var(--blue)} .bad{color:var(--danger)} .warnc{color:var(--warn)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .pill.tr{background:#15332a;color:var(--accent)}
+  .pill.rest{background:#22303a;color:var(--blue)}
+  .pill.ok{background:#15332a;color:var(--accent)}
+  .pill.no{background:#3a2230;color:var(--danger)}
+
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:9px 10px;font-size:14px;font-family:inherit}
+  textarea{resize:vertical;min-height:54px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .btn{background:var(--accent);color:#062418;border:none;border-radius:9px;padding:10px 16px;
+    font-weight:700;cursor:pointer;font-size:14px}
+  .btn:hover{background:var(--accent2);color:#fff}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.del{background:transparent;color:var(--danger);border:1px solid #43222b}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+  .row>*{flex:1;min-width:120px}
+  .muted{color:var(--muted)} .small{font-size:12px}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:10px 12px;border-radius:8px;font-size:13px;margin:8px 0}
+  .note.warn{border-color:var(--warn)} .note.danger{border-color:var(--danger)}
+  ul.tight{margin:6px 0;padding-left:20px} ul.tight li{margin:3px 0;font-size:13.5px}
+  .timeline td:first-child{white-space:nowrap;font-weight:700;color:var(--accent);font-size:13px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;user-select:none}
+  .chip input{width:auto}
+  .chartbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .legend{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:26px}
+  details summary{cursor:pointer;font-weight:600;color:var(--accent);margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <h1>🏋️ Tony's Health Tracker</h1>
+      <div class="sub">ชาย · 33 ปี · 173 cm · ID 5847 · เครื่อง InBody270S (FITNESS One)</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span class="phase">เฟส: <b id="phaseLabel">Phase 1 — Cut</b></span>
+      <span class="badge">เป้า %ไขมัน 14%</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="dash" class="active">📊 ภาพรวม</button>
+    <button data-tab="plan">📋 กิจวัตร &amp; แผน</button>
+    <button data-tab="food">🍽️ บันทึกอาหาร</button>
+    <button data-tab="inbody">📈 ผล InBody</button>
+    <button data-tab="export">📤 Export / Backup</button>
+  </nav>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section class="tab active" id="dash">
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="card stat"><div class="num" id="d_weight">—</div><div class="lbl">น้ำหนักล่าสุด (kg)</div><div class="delta" id="d_weight_d"></div></div>
+      <div class="card stat"><div class="num" id="d_bf">—</div><div class="lbl">% ไขมัน (เป้า 14%)</div><div class="delta" id="d_bf_d"></div></div>
+      <div class="card stat"><div class="num" id="d_smm">—</div><div class="lbl">มวลกล้ามเนื้อ SMM (kg)</div><div class="delta" id="d_smm_d"></div></div>
+      <div class="card stat"><div class="num" id="d_vis">—</div><div class="lbl">ไขมันช่องท้อง (1–9)</div><div class="delta" id="d_vis_d"></div></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h2>🎯 เป้าหมาย &amp; ความคืบหน้า</h2>
+        <table>
+          <tr><th>รายการ</th><th>ตอนนี้</th><th>เป้าหมาย</th></tr>
+          <tr><td>% ไขมัน</td><td id="p_bf_now">18.9%</td><td>14%</td></tr>
+          <tr><td>มวลไขมัน</td><td id="p_fat_now">13.8 kg</td><td>~9.6 kg</td></tr>
+          <tr><td>มวลกล้ามเนื้อ (SMM)</td><td id="p_smm_now">33.6 kg</td><td>คงไว้ / เพิ่ม</td></tr>
+          <tr><td>น้ำหนัก</td><td id="p_w_now">73.1 kg</td><td>~69–71 kg</td></tr>
+          <tr><td>เอว</td><td>83.1 cm</td><td>ลดลง</td></tr>
+        </table>
+        <h3>ความคืบหน้าสู่ 14%</h3>
+        <div style="background:var(--panel2);border-radius:999px;height:16px;overflow:hidden;border:1px solid var(--line)">
+          <div id="progressBar" style="height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .5s"></div>
+        </div>
+        <div class="small muted" id="progressText" style="margin-top:6px">—</div>
+        <div class="note" style="margin-top:12px">ต้องลดไขมัน ~4 kg ที่อัตรา ~0.4 kg/สัปดาห์ → <b>~3–3.5 เดือน</b> (เริ่มวัด 19 มิ.ย. 2026)</div>
+      </div>
+
+      <div class="card">
+        <h2>✅ เช็กลิสต์วันนี้ <span class="small muted" id="todayLabel"></span></h2>
+        <div id="habits" class="grid" style="grid-template-columns:1fr 1fr;gap:8px"></div>
+        <h3>เพิ่มบันทึกอาหารเร็ว</h3>
+        <p class="small muted">ไปที่แท็บ “บันทึกอาหาร” เพื่อจดมื้อ/เวลา แล้วใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
+        <div class="note warn">💡 ส่อง %ไขมัน + เอว + กระจก เป็นหลัก อย่ายึดตัวเลขตาชั่งรายวัน</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>🧠 สรุปความเข้าใจร่วมกัน (ที่คุยกันไว้)</h2>
+      <div class="grid g3">
+        <div>
+          <h3>เป้าหมายหลัก</h3>
+          <ul class="tight">
+            <li>คงกล้าม + ค่อย ๆ เพิ่ม</li>
+            <li>รีดไขมันช่องท้องที่สะสมมานาน</li>
+            <li>%ไขมัน → 14%</li>
+          </ul>
+        </div>
+        <div>
+          <h3>กลยุทธ์</h3>
+          <ul class="tight">
+            <li>Phase 1: Cut (ขาดดุล ~400 kcal)</li>
+            <li>Carb cycling (เทรนกินคาร์บเยอะ)</li>
+            <li>โปรตีนสูง ~165 g/วัน</li>
+            <li>เสริมเวทจริง + ครีเอทีน</li>
+          </ul>
+        </div>
+        <div>
+          <h3>ข้อจำกัด/ระวัง</h3>
+          <ul class="tight">
+            <li>กรดไหลย้อน (กิน Gaviscon)</li>
+            <li>เลี่ยงไขมัน/กาแฟตอนท้องว่าง</li>
+            <li>มื้อหนักก่อน 20:00</li>
+            <li>บิงซู After You = มื้อโกง 2 สัปดาห์/ครั้ง</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PLAN ===================== -->
+  <section class="tab" id="plan">
+    <div class="card">
+      <h2>🗓️ กิจวัตรประจำวัน (ตามจริงของคุณ)</h2>
+      <ul class="tight">
+        <li>ตื่น <b>06:00</b> · นอน <b>23:00</b> (นอน ~7 ชม.)</li>
+        <li>เช้า: น้ำเปล่านิดหน่อย → ไข่ขาวลวก 4 + ไข่แดง 1 (กำลังปรับไข่แดงเป็น 3)</li>
+        <li>แม่ทำอาหารให้ <b>~10:00</b> (โปรตีน 65% / ผัก-ผลไม้ 30% / คาร์บ 5%)</li>
+        <li>กาแฟดำบางวัน (ก่อนเที่ยง)</li>
+        <li>ออกกำลังกาย <b>16:00–19:00</b> (ส่วนใหญ่ 17:00–19:00) · <b>4–5 วัน/สัปดาห์</b> · ~2 ชม.</li>
+        <li>คลาส: Body Pump + (Zumba / Body Combat / Pilates) · คลาสละ 1 ชม.</li>
+        <li>สาย ๆ วิดพื้น 30–40 ที × 1–2 เซต</li>
+        <li>หลังเทรน: บางวันกินกับแม่ (ต้มเลือดหมู) / บิงซู After You (2 สัปดาห์/ครั้ง)</li>
+        <li>21:30 ไปหาแฟน — พยายามลดของกินดึก (กรดไหลย้อน)</li>
+      </ul>
+    </div>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card">
+        <h2>🔵 วันเทรน <span class="small muted">~2,250 kcal · P165 / C200 / F65</span></h2>
+        <table class="timeline">
+          <tr><th>เวลา</th><th>เมนู</th></tr>
+          <tr><td>06:00</td><td>น้ำเปล่า 1–2 แก้ว</td></tr>
+          <tr><td>06:30</td><td>ไข่ขาว 4 + ไข่แดง 1 + Vit C 500 → กาแฟดำ (หลังกินไข่)</td></tr>
+          <tr><td>10:00</td><td><b>มื้อใหญ่แม่ทำ</b> + ข้าวกล้อง 1.5 ทัพพี → น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด</td></tr>
+          <tr><td>13:00</td><td>อกไก่ 1–2 ชิ้น + ผลไม้ 1 + <b>วิดพื้น</b></td></tr>
+          <tr><td>15:00</td><td><b>ก่อนเทรน:</b> ข้าวกล้อง/มันหวาน + อกไก่ 1 + <b>ครีเอทีน 5g</b></td></tr>
+          <tr><td>16:30</td><td>กล้วย 1 ลูก (ถ้าหิว)</td></tr>
+          <tr><td>17–19</td><td><b>เทรน</b> + จิบน้ำ/เกลือแร่</td></tr>
+          <tr><td>19:30</td><td><b>หลังเทรน:</b> ต้มเลือดหมู+ข้าว / อกไก่-ปลา + ข้าว + ผัก + ฟิชออยล์ 1</td></tr>
+          <tr><td>21:30</td><td>(ถ้าหิว) กรีกโยเกิร์ต / เวย์โปรตีน</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>⚪ วันพัก <span class="small muted">~1,950 kcal · P165 / C120 / F65</span></h2>
+        <ul class="tight">
+          <li>ตัดมื้อ “ก่อนเทรน 15:00” และ “กล้วย 16:30” ออก</li>
+          <li>มื้อแม่ 10 โมง ลดข้าวเหลือ 1 ทัพพี</li>
+          <li>มื้อเย็นลดข้าวลง เพิ่มผักให้อิ่ม</li>
+          <li><b>โปรตีนคงเดิม ~165 g</b> (กันกล้ามสลายวันพัก)</li>
+        </ul>
+        <h3>🍧 วันบิงซู (ทุก 2 สัปดาห์)</h3>
+        <ul class="tight">
+          <li>กินเป็นมื้อหลังเทรน (กล้ามดูดซับน้ำตาลดีหลังออกกำลัง)</li>
+          <li>วันนั้นลดข้าวมื้ออื่นลง</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card">
+        <h2>💊 อาหารเสริม</h2>
+        <table>
+          <tr><th>รายการ</th><th>ขนาด</th><th>เมื่อไหร่</th></tr>
+          <tr><td>น้ำมันมะกอก</td><td>1 ชต.</td><td>มื้อ 10 โมง</td></tr>
+          <tr><td>Vistra Salmon Fish Oil 1000mg</td><td>2 เม็ด + 1 เม็ด</td><td>มื้อ 10 โมง + เย็น</td></tr>
+          <tr><td>Vitamin C 500</td><td>1 เม็ด</td><td>เช้า</td></tr>
+          <tr><td>Creatine Monohydrate</td><td>5 g</td><td>ก่อนเทรน (วันไหนก็ได้)</td></tr>
+          <tr><td>DoubleX (Multi/Phyto/Mineral)</td><td>option</td><td>กับมื้ออาหาร</td></tr>
+          <tr><td>กาแฟดำ</td><td>1–2 แก้ว</td><td>หลังอาหาร · หยุดก่อนบ่าย 3</td></tr>
+        </table>
+        <div class="note small">ฟิชออยล์ 1000mg ให้ EPA+DHA ~300mg/เม็ด → 3 เม็ด/วัน ≈ ~900–1,000mg (ช่วยลดอักเสบ/ไขมันช่องท้อง)</div>
+      </div>
+      <div class="card">
+        <h2>🏋️ การฝึก</h2>
+        <ul class="tight">
+          <li>คลาสกรุ๊ป 4–5 วัน (Body Pump + คาร์ดิโอ)</li>
+          <li><b>เสริมเวทจริง 2 วัน/สัปดาห์</b> เพื่อ “เพิ่มกล้าม”</li>
+        </ul>
+        <table>
+          <tr><th>วัน A (ดัน+ขา)</th><th>วัน B (ดึง+ขา)</th></tr>
+          <tr><td>Goblet Squat 3×10</td><td>Romanian Deadlift 3×10</td></tr>
+          <tr><td>DB Chest Press 3×10</td><td>DB Row 3×10</td></tr>
+          <tr><td>DB Shoulder Press 3×10</td><td>Lat Pulldown/Pull-up 3×max</td></tr>
+          <tr><td>Walking Lunge 3×12</td><td>Hip Thrust 3×12</td></tr>
+        </table>
+        <div class="note warn small"><b>Progressive overload:</b> จดน้ำหนัก แล้วเพิ่มเรพ/น้ำหนักทุกสัปดาห์ ไม่งั้นกล้ามไม่โต</div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card">
+        <h2>🫃 กฎกัน GERD</h2>
+        <ul class="tight">
+          <li>ไขมัน (น้ำมันมะกอก/ฟิชออยล์) + กาแฟ → <b>หลังมีข้าวในท้องแล้ว</b> เสมอ</li>
+          <li>มื้อหนักสุดท้าย <b>ก่อน 20:00</b></li>
+          <li>เจอแฟนดึก → กินของเบา ไม่กระตุ้นกรด</li>
+          <li>กรดขึ้นกลางคืน → หนุนหัวเตียงสูง 10–15 ซม.</li>
+          <li>ถ้าต้องกิน Gaviscon เกือบทุกวัน → ไปพบแพทย์</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>🔁 2 เฟสของแผน</h2>
+        <table>
+          <tr><th>เฟส</th><th>ระยะ</th><th>กิน</th></tr>
+          <tr><td><b>1. Cut</b> (ตอนนี้)</td><td>~3–3.5 ด.</td><td>ขาดดุล ~400</td></tr>
+          <tr><td><b>2. Lean Bulk</b></td><td>หลัง 14%</td><td>เกินดุล ~200–300</td></tr>
+        </table>
+        <div class="note small">Phase 1 = รีดไขมัน + คงกล้าม (อาจได้กล้ามแถมจาก newbie gains). Phase 2 = อัดกล้ามจริง กินเยอะขึ้น</div>
+        <h3>เช็ก InBody ทุก 2–4 สัปดาห์ — ดู 3 ตัว</h3>
+        <ul class="tight">
+          <li>✅ %ไขมัน ลง</li>
+          <li>✅ SMM คงที่/ขึ้น (ห้ามตก = กินน้อย/คาร์ดิโอเกิน)</li>
+          <li>✅ ไขมันลำตัว % ลง (จาก 170%)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOD LOG ===================== -->
+  <section class="tab" id="food">
+    <div class="card">
+      <h2>🍽️ บันทึกอาหาร</h2>
+      <h3 style="margin-top:0">⚡ เพิ่มเร็ว <span class="small muted">— แตะปุ่ม = บันทึกทันทีตามเวลาปัจจุบัน</span></h3>
+      <div id="f_presets" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <div id="f_toast" style="display:none;margin-top:8px" class="note">✅ บันทึกแล้ว</div>
+      <h3>✏️ หรือเพิ่มเอง (ปรับเวลา/รายละเอียดได้)</h3>
+      <div class="row">
+        <div style="flex:0 0 150px"><label>วันที่</label><input type="date" id="f_date"></div>
+        <div style="flex:0 0 120px"><label>เวลา</label><input type="time" id="f_time"></div>
+        <div style="flex:0 0 150px"><label>มื้อ</label>
+          <select id="f_meal">
+            <option>เช้า (ไข่)</option><option>มื้อแม่ทำ 10โมง</option><option>ว่าย/วิดพื้น</option>
+            <option>ก่อนเทรน</option><option>หลังเทรน</option><option>เย็น/ดึก</option><option>มื้อโกง/บิงซู</option><option>อื่น ๆ</option>
+          </select>
+        </div>
+      </div>
+      <label>กินอะไรบ้าง</label>
+      <textarea id="f_items" placeholder="เช่น ไข่ขาว 4 + ไข่แดง 1, ข้าวกล้อง 1.5 ทัพพี, อกไก่ 7-11 1 ชิ้น..."></textarea>
+      <div class="row">
+        <div><label>kcal (ถ้ารู้ — ไม่ใส่ก็ได้)</label><input type="number" id="f_kcal" placeholder="—"></div>
+        <div><label>โปรตีน g (ถ้ารู้)</label><input type="number" id="f_pro" placeholder="—"></div>
+        <div style="flex:2"><label>โน้ต (อาการ/พลังเทรน/กรดไหลย้อน ฯลฯ)</label><input id="f_note" placeholder="—"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" id="f_add">+ เพิ่มบันทึก</button>
+        <button class="btn ghost sm" id="f_now">ตั้งเป็นเวลาปัจจุบัน</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>📜 ประวัติการกิน <span class="small muted" id="f_summary"></span></h2>
+      <div id="foodList"></div>
+    </div>
+  </section>
+
+  <!-- ===================== INBODY ===================== -->
+  <section class="tab" id="inbody">
+    <div class="card">
+      <h2>📈 บันทึกผล InBody</h2>
+      <div class="row">
+        <div><label>วันที่</label><input type="date" id="i_date"></div>
+        <div><label>น้ำหนัก (kg)</label><input type="number" step="0.1" id="i_weight"></div>
+        <div><label>% ไขมัน</label><input type="number" step="0.1" id="i_bf"></div>
+        <div><label>SMM (kg)</label><input type="number" step="0.1" id="i_smm"></div>
+      </div>
+      <div class="row">
+        <div><label>ไขมันช่องท้อง (1–9)</label><input type="number" step="1" id="i_vis"></div>
+        <div><label>เอว (cm)</label><input type="number" step="0.1" id="i_waist"></div>
+        <div><label>InBody Score</label><input type="number" step="1" id="i_score"></div>
+        <div style="flex:2"><label>โน้ต</label><input id="i_note" placeholder="—"></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn" id="i_add">+ บันทึกผลวัด</button></div>
+    </div>
+
+    <div class="grid g3" style="margin-top:14px">
+      <div class="card"><h2>น้ำหนัก (kg)</h2><div class="chartbox" id="chart_weight"></div></div>
+      <div class="card"><h2>% ไขมัน</h2><div class="chartbox" id="chart_bf"></div></div>
+      <div class="card"><h2>SMM (kg)</h2><div class="chartbox" id="chart_smm"></div></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>📋 ตารางผลวัดทั้งหมด</h2>
+      <div style="overflow-x:auto"><table id="inbodyTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== EXPORT ===================== -->
+  <section class="tab" id="export">
+    <div class="card">
+      <h2>📤 ส่งข้อมูลให้ Claude วิเคราะห์</h2>
+      <p class="small muted">กดสร้างรายงาน แล้ว <b>ก๊อปทั้งหมดส่งมาในแชต</b> ผมจะวิเคราะห์คู่กับรูป InBody ที่คุณส่งแยกได้เลย</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="genReport">สร้างรายงานสรุป</button>
+        <button class="btn ghost" id="dlBackup">⬇️ ดาวน์โหลด Backup (.json)</button>
+        <label class="btn ghost" style="cursor:pointer">⬆️ โหลด Backup<input type="file" id="upBackup" accept=".json" hidden></label>
+        <button class="btn del" id="clearAll">ล้างข้อมูลทั้งหมด</button>
+      </div>
+      <label style="margin-top:14px">รายงาน (ก๊อปอันนี้ส่งให้ผม)</label>
+      <textarea id="reportOut" style="min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px" placeholder="กด “สร้างรายงานสรุป”..."></textarea>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="note">ℹ️ ข้อมูลทั้งหมดเก็บใน <b>เบราว์เซอร์เครื่องนี้</b> (localStorage) — ไม่ได้ส่งขึ้นอินเทอร์เน็ตอัตโนมัติ ควรกด Backup เก็บไว้เป็นระยะ และอย่าล้างประวัติเบราว์เซอร์แบบลบ site data</div>
+    </div>
+  </section>
+
+  <div class="foot">สร้างให้โดย Claude · เริ่มต้นข้อมูลจาก InBody 19 มิ.ย. 2026 · เปิดไฟล์นี้ค้างไว้ใช้จดได้ทุกวัน</div>
+</div>
+
+<script>
+"use strict";
+const K={food:'ht_food',inbody:'ht_inbody',habits:'ht_habits',seed:'ht_seeded_v1'};
+const $=id=>document.getElementById(id);
+const load=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))??def}catch(e){return def}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const todayStr=()=>new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+const fmtD=s=>{if(!s)return'';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2)};
+
+// ---------- seed initial InBody history from the PDF ----------
+if(!load(K.seed,false)){
+  const seed=[
+    {date:'2026-05-22',weight:73.1,bf:18.9,smm:33.5,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
+    {date:'2026-06-13',weight:73.2,bf:17.7,smm:34.1,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
+    {date:'2026-06-14',weight:73.6,bf:18.3,smm:34.0,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
+    {date:'2026-06-16',weight:72.3,bf:20.0,smm:32.7,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
+    {date:'2026-06-19',weight:73.1,bf:18.9,smm:33.6,vis:5,waist:83.1,score:80,note:'ผลล่าสุด (ใบที่ส่งมา)'}
+  ];
+  save(K.inbody,seed); save(K.food,[]); save(K.habits,{}); save(K.seed,true);
+}
+
+// ---------- tabs ----------
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $(b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='inbody')renderInbody();
+  if(b.dataset.tab==='dash')renderDash();
+});
+
+// ---------- HABITS ----------
+const HAB=[['water','💧 น้ำ 2.5L'],['protein','🍗 โปรตีนครบ'],['creatine','💊 ครีเอทีน'],
+  ['fishoil','🐟 ฟิชออยล์'],['vitc','🍊 Vit C'],['train','🏋️ เทรน'],['sleep','😴 นอน 7ชม'],['nojunk','🚫 ไม่กินขยะ']];
+function renderHabits(){
+  const all=load(K.habits,{}),t=todayStr(),day=all[t]||{};
+  $('todayLabel').textContent='('+fmtD(t)+')';
+  $('habits').innerHTML=HAB.map(([k,l])=>
+    `<label class="chip"><input type="checkbox" data-h="${k}" ${day[k]?'checked':''}>${l}</label>`).join('');
+  document.querySelectorAll('#habits input').forEach(c=>c.onchange=()=>{
+    const all=load(K.habits,{}),t=todayStr();all[t]=all[t]||{};all[t][c.dataset.h]=c.checked;save(K.habits,all);
+  });
+}
+
+// ---------- FOOD ----------
+function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';}
+$('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
+$('f_add').onclick=()=>{
+  const items=$('f_items').value.trim();if(!items){alert('ใส่ว่ากินอะไรก่อนนะครับ');return;}
+  const arr=load(K.food,[]);
+  arr.push({id:Date.now(),date:$('f_date').value,time:$('f_time').value,meal:$('f_meal').value,
+    items,kcal:+$('f_kcal').value||null,pro:+$('f_pro').value||null,note:$('f_note').value.trim()});
+  save(K.food,arr);resetFoodForm();renderFood();
+};
+function delFood(id){if(!confirm('ลบบันทึกนี้?'))return;save(K.food,load(K.food,[]).filter(x=>x.id!==id));renderFood();}
+
+// ---------- quick-add presets (เมนูจริงของ Tony) ----------
+const PRESETS=[
+  {label:'🥚 ไข่เช้า',meal:'เช้า (ไข่)',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25},
+  {label:'☕ กาแฟดำ',meal:'เช้า (ไข่)',items:'กาแฟดำไม่ใส่น้ำตาล'},
+  {label:'🍱 มื้อแม่ทำ',meal:'มื้อแม่ทำ 10โมง',items:'กับข้าวแม่ทำ (โปรตีน+ผัก) + ข้าวกล้อง 1.5 ทัพพี + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:50},
+  {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:23},
+  {label:'🍠 มื้อก่อนเทรน',meal:'ก่อนเทรน',items:'ข้าวกล้อง/มันหวาน + อกไก่ 1 ชิ้น + ครีเอทีน 5g',pro:25},
+  {label:'🍌 กล้วยก่อนเทรน',meal:'ก่อนเทรน',items:'กล้วย 1 ลูก'},
+  {label:'🍲 ต้มเลือดหมู+ข้าว',meal:'หลังเทรน',items:'ต้มเลือดหมู + ข้าว (มื้อหลังเทรน)',pro:30},
+  {label:'🐟 อกไก่/ปลา+ข้าว',meal:'หลังเทรน',items:'อกไก่/ปลา + ข้าว + ผัก + ฟิชออยล์ 1 เม็ด',pro:40},
+  {label:'🥛 เวย์/กรีกโยเกิร์ต',meal:'เย็น/ดึก',items:'เวย์โปรตีน / กรีกโยเกิร์ต',pro:25},
+  {label:'🍧 บิงซู After You',meal:'มื้อโกง/บิงซู',items:'บิงซูโฮจิฉะ After You (มื้อโกง)'}
+];
+function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+let toastT;
+function toast(msg){const t=$('f_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',2200);}
+function quickAdd(p){
+  const arr=load(K.food,[]);
+  arr.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:p.meal,items:p.items,kcal:p.kcal||null,pro:p.pro||null,note:''});
+  save(K.food,arr);renderFood();toast(p.items.slice(0,38)+(p.items.length>38?'…':'')+' ('+nowHM()+')');
+}
+function renderPresets(){
+  $('f_presets').innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-p="${i}" style="cursor:pointer">${p.label}</button>`).join('');
+  document.querySelectorAll('#f_presets button').forEach(b=>b.onclick=()=>quickAdd(PRESETS[+b.dataset.p]));
+}
+function renderFood(){
+  const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const totK=arr.reduce((s,x)=>s+(x.kcal||0),0),totP=arr.reduce((s,x)=>s+(x.pro||0),0);
+  $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
+  if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
+  const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
+  let html='';
+  Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(d=>{
+    const rows=byDate[d];const dk=rows.reduce((s,x)=>s+(x.kcal||0),0),dp=rows.reduce((s,x)=>s+(x.pro||0),0);
+    html+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px">${fmtD(d)}
+      <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g โปรตีน':''}</span></h3><table>`;
+    rows.forEach(x=>{
+      html+=`<tr>
+        <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
+        <td style="white-space:nowrap"><span class="pill rest">${x.meal}</span></td>
+        <td>${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
+        <td style="white-space:nowrap" class="small muted">${x.kcal?x.kcal+'kcal':''}${x.pro?'<br>'+x.pro+'g P':''}</td>
+        <td><button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
+      </tr>`;
+    });
+    html+='</table>';
+  });
+  $('foodList').innerHTML=html;
+}
+
+// ---------- INBODY ----------
+$('i_date').value=todayStr();
+$('i_add').onclick=()=>{
+  const d=$('i_date').value;if(!d){alert('ใส่วันที่');return;}
+  const rec={date:d,weight:+$('i_weight').value||null,bf:+$('i_bf').value||null,smm:+$('i_smm').value||null,
+    vis:+$('i_vis').value||null,waist:+$('i_waist').value||null,score:+$('i_score').value||null,note:$('i_note').value.trim()};
+  if(rec.weight==null&&rec.bf==null&&rec.smm==null&&rec.vis==null&&rec.waist==null){alert('ใส่อย่างน้อย 1 ค่า (น้ำหนัก/%ไขมัน/SMM...)');return;}
+  const arr=load(K.inbody,[]);
+  const i=arr.findIndex(x=>x.date===d); if(i>=0){if(!confirm('มีผลวัดวันนี้แล้ว เขียนทับ?'))return;arr[i]=rec;}else arr.push(rec);
+  save(K.inbody,arr);
+  ['i_weight','i_bf','i_smm','i_vis','i_waist','i_score','i_note'].forEach(x=>$(x).value='');
+  renderInbody();renderDash();
+};
+function delInbody(d){if(!confirm('ลบผลวัด '+fmtD(d)+'?'))return;save(K.inbody,load(K.inbody,[]).filter(x=>x.date!==d));renderInbody();renderDash();}
+
+function lineChart(data,color,opts={}){
+  data=data.filter(p=>p.v!=null);
+  if(data.length<1)return'<p class="small muted">ยังไม่มีข้อมูล</p>';
+  const W=300,H=150,pad=28;
+  const vals=data.map(p=>p.v);let mn=Math.min(...vals),mx=Math.max(...vals);
+  if(opts.target!=null){mn=Math.min(mn,opts.target);mx=Math.max(mx,opts.target);}
+  if(mn===mx){mn-=1;mx+=1;}const rng=mx-mn||1;
+  const x=i=>pad+(data.length===1?(W-2*pad)/2:i*(W-2*pad)/(data.length-1));
+  const y=v=>H-pad-((v-mn)/rng)*(H-2*pad);
+  let pts=data.map((p,i)=>`${x(i)},${y(p.v)}`).join(' ');
+  let dots=data.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.v)}" r="3.2" fill="${color}"/>
+    <text x="${x(i)}" y="${y(p.v)-8}" fill="var(--text)" font-size="9" text-anchor="middle">${p.v}</text>`).join('');
+  let labels=data.map((p,i)=>`<text x="${x(i)}" y="${H-8}" fill="var(--muted)" font-size="8" text-anchor="middle">${fmtD(p.d)}</text>`).join('');
+  let tline='';
+  if(opts.target!=null){const ty=y(opts.target);
+    tline=`<line x1="${pad}" y1="${ty}" x2="${W-pad}" y2="${ty}" stroke="var(--accent)" stroke-dasharray="4 3" opacity=".7"/>
+    <text x="${W-pad}" y="${ty-4}" fill="var(--accent)" font-size="9" text-anchor="end">เป้า ${opts.target}</text>`;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.2"/>
+    ${tline}${dots}${labels}</svg>`;
+}
+function renderInbody(){
+  const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  $('chart_weight').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.weight})),'var(--blue)',{target:70});
+  $('chart_bf').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.bf})),'var(--warn)',{target:14});
+  $('chart_smm').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.smm})),'var(--accent)');
+  let t='<tr><th>วันที่</th><th>น้ำหนัก</th><th>%ไขมัน</th><th>SMM</th><th>ช่องท้อง</th><th>เอว</th><th>Score</th><th>โน้ต</th><th></th></tr>';
+  arr.slice().reverse().forEach(x=>{t+=`<tr>
+    <td style="white-space:nowrap;font-weight:700">${fmtD(x.date)}</td>
+    <td>${x.weight??'—'}</td><td>${x.bf??'—'}</td><td>${x.smm??'—'}</td>
+    <td>${x.vis??'—'}</td><td>${x.waist??'—'}</td><td>${x.score??'—'}</td>
+    <td class="small muted">${x.note||''}</td>
+    <td><button class="btn del sm" onclick="delInbody('${x.date}')">ลบ</button></td></tr>`;});
+  $('inbodyTable').innerHTML=t;
+}
+
+// ---------- DASHBOARD ----------
+function renderDash(){
+  renderHabits();
+  const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if(!arr.length)return;
+  const last=arr[arr.length-1],prev=arr.length>1?arr[arr.length-2]:null;
+  const first=arr[0];
+  const setStat=(id,val,unit='')=>{$(id).textContent=(val??'—')+(val!=null?unit:'');};
+  setStat('d_weight',last.weight);setStat('d_bf',last.bf,'%');setStat('d_smm',last.smm);setStat('d_vis',last.vis);
+  const delta=(id,cur,pre,inv=false,unit='')=>{
+    if(pre==null||cur==null){$(id).textContent='';return;}
+    const diff=+(cur-pre).toFixed(1);const good=inv?diff<0:diff>0;
+    $(id).textContent=(diff>0?'▲ +':'▼ ')+diff+unit+' จากครั้งก่อน';
+    $(id).className='delta '+(diff===0?'muted':good?'up':'bad');
+  };
+  delta('d_weight_d',last.weight,prev?.weight,true,'kg');
+  delta('d_bf_d',last.bf,prev?.bf,true,'%');
+  delta('d_smm_d',last.smm,prev?.smm,false,'kg');
+  delta('d_vis_d',last.vis,prev?.vis,true,'');
+  // progress to 14%
+  if(last.bf!=null){
+    const start=first.bf??18.9,target=14;
+    const pct=Math.max(0,Math.min(100,((start-last.bf)/(start-target))*100));
+    $('progressBar').style.width=pct+'%';
+    $('progressText').innerHTML=`จาก ${start}% → ตอนนี้ <b>${last.bf}%</b> → เป้า ${target}% &nbsp; (${pct.toFixed(0)}% ของทาง)`;
+  }
+}
+
+// ---------- EXPORT ----------
+$('genReport').onclick=()=>{
+  const ib=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const food=load(K.food,[]).slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const hab=load(K.habits,{});
+  let r='===== TONY HEALTH TRACKER REPORT =====\n';
+  r+='สร้างเมื่อ: '+new Date().toLocaleString('th-TH')+'\n';
+  r+='เป้าหมาย: %ไขมัน 18.9% -> 14% | คง/เพิ่มกล้าม | ลดไขมันช่องท้อง\n\n';
+  r+='--- ผล InBody ---\n';
+  ib.forEach(x=>{r+=`${x.date} | นน. ${x.weight??'-'}kg | %ไขมัน ${x.bf??'-'} | SMM ${x.smm??'-'}kg | ช่องท้อง ${x.vis??'-'} | เอว ${x.waist??'-'} | score ${x.score??'-'} ${x.note?'('+x.note+')':''}\n`;});
+  r+='\n--- บันทึกอาหาร ---\n';
+  let cd='';
+  food.forEach(x=>{if(x.date!==cd){cd=x.date;r+=`\n[${x.date}]\n`;}r+=`  ${x.time} ${x.meal}: ${x.items}${x.kcal?' ('+x.kcal+'kcal':''}${x.pro?(x.kcal?', ':' (')+x.pro+'g P':''}${(x.kcal||x.pro)?')':''}${x.note?'  >> '+x.note:''}\n`;});
+  r+='\n--- เช็กลิสต์นิสัย (วันที่มีข้อมูล) ---\n';
+  Object.keys(hab).sort().forEach(d=>{const done=Object.entries(hab[d]).filter(([,v])=>v).map(([k])=>k).join(',');r+=`${d}: ${done||'-'}\n`;});
+  r+='\n===== END (ก๊อปทั้งหมดส่งให้ Claude วิเคราะห์) =====';
+  $('reportOut').value=r;$('reportOut').select();
+};
+$('dlBackup').onclick=()=>{
+  const data={inbody:load(K.inbody,[]),food:load(K.food,[]),habits:load(K.habits,{}),exported:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='health-tracker-backup-'+todayStr()+'.json';a.click();
+};
+$('upBackup').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{const d=JSON.parse(rd.result);
+    if(d.inbody)save(K.inbody,d.inbody);if(d.food)save(K.food,d.food);if(d.habits)save(K.habits,d.habits);
+    alert('โหลด Backup สำเร็จ');renderAll();}catch(err){alert('ไฟล์ไม่ถูกต้อง');}};
+  rd.readAsText(f);
+};
+$('clearAll').onclick=()=>{if(!confirm('ล้างข้อมูลทั้งหมด (อาหาร+InBody+นิสัย)? ลบแล้วกู้ไม่ได้'))return;
+  if(!confirm('แน่ใจนะครับ? แนะนำกด Backup ก่อน'))return;
+  localStorage.removeItem(K.food);localStorage.removeItem(K.inbody);localStorage.removeItem(K.habits);
+  localStorage.removeItem(K.seed);location.reload();};
+
+// ---------- init ----------
+function renderAll(){renderDash();renderFood();renderInbody();renderPresets();}
+resetFoodForm();renderAll();
+</script>
+</body>
+</html>
