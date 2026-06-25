@@ -459,7 +459,7 @@ function editFood(id){
 // ---------- quick-add presets (เมนูจริงของ Tony) ----------
 const PRESETS=[
   {label:'🥚 ไข่เช้า ✏️',meal:'เช้า (ไข่)',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 3',pro:25,kcal:230,prefill:true,sel:'3',prefillMsg:'ปรับจำนวนไข่/โปรตีน/แคลฯ ได้ แล้วกด “+ เพิ่มบันทึก”'},
-  {label:'☕ กาแฟดำ',meal:'เช้า (ไข่)',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
+  {label:'☕ กาแฟดำ',meal:'อื่น ๆ',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
   {label:'🍱 มื้อแม่ทำ ✏️',meal:'มื้อแม่ทำ 10โมง',items:'แม่ทำ: (ระบุเมนู) + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:45,kcal:450,prefill:true,sel:'(ระบุเมนู)',prefillMsg:'พิมพ์ว่าแม่ทำอะไร แล้วกด “+ เพิ่มบันทึก” (ถ่ายรูปให้ AI ช่วยประเมิน → เขียนทับโปรตีน/แคลฯ ได้)'},
   {label:'🍚 ข้าวกล้อง 1 ทัพพี',meal:'อื่น ๆ',items:'ข้าวกล้อง 1 ทัพพี',pro:3,kcal:120},
   {label:'🍗 อกไก่ 7-11 (1)',meal:'ว่าย/วิดพื้น',items:'อกไก่พริกไทยดำ 7-11 1 ชิ้น',pro:23,kcal:110},
@@ -546,12 +546,15 @@ function calcNutri(text){
   for(const raw of text.split(/[\+,]/)){
     const seg=raw.trim();if(!seg)continue;
     if(/\(ระบุ/.test(seg)){unknown++;continue;}
-    const f=FOODS.find(x=>x.r.test(seg));
+    // ถ้ามีวงเล็บ (เช่น "สะตอผัดกุ้ง (กุ้ง 120g)") → ลองหาอาหารในวงเล็บก่อน กันไม่ให้ชื่อเมนูหลอก parser
+    const inner=seg.includes('(')?seg.replace(/^[^(]*\(/,'').replace(/\).*$/,'').trim():'';
+    const src=inner&&FOODS.find(x=>x.r.test(inner))?inner:seg;
+    const f=FOODS.find(x=>x.r.test(src));
     if(!f){unknown++;continue;}
-    const m=seg.match(/(\d+(?:\.\d+)?)/);
+    const m=src.match(/(\d+(?:\.\d+)?)/);
     const q=m?parseFloat(m[1]):1;
-    const isGram=/กรัม|[\d]\s*g\b/i.test(seg);
-    const isPiece=/ตัว\b|ฟอง\b|ชิ้น\b|อัน\b|เม็ด\b|ลูก\b|กระป๋อง\b/.test(seg);
+    const isGram=/กรัม|[\d]\s*g\b/i.test(src);
+    const isPiece=/ตัว\b|ฟอง\b|ชิ้น\b|อัน\b|เม็ด\b|ลูก\b|กระป๋อง\b/.test(src);
     if(isGram&&f.g){pro+=f.g[0]*q/100;kcal+=f.g[1]*q/100;known++;}
     else if(isPiece&&f.pc){pro+=f.pc[0]*q;kcal+=f.pc[1]*q;known++;}
     else if(f.srv){pro+=f.srv[0]*q;kcal+=f.srv[1]*q;known++;}
