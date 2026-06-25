@@ -517,7 +517,7 @@ function autoNutri(){
   const hint=$('calcHint');
   if(nutLocked)return;
   const txt=$('f_items').value;
-  if(/กรัม|มล\.|\bml\b/i.test(txt)){if(hint)hint.textContent='📷 มื้อละเอียด — ใส่ kcal/โปรตีนรวมเอง (จากรูป/AI ประเมิน) แล้วกดบันทึก';return;}
+  if(/กรัม|มล\.|\bml\b/i.test(txt)){if(hint)hint.textContent='📷 มื้อละเอียด — ใส่ kcal/โปรตีนรวมเอง (จากรูป/AI ประเมิน) แล้วกดบันทึก';$('f_kcal').value='';$('f_pro').value='';return;}
   const r=calcNutri(txt);
   if(r.known===0||r.unknown>0){
     if(hint)hint.textContent=(r.known>0&&r.unknown>0)
