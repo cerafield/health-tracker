@@ -94,6 +94,28 @@
   .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
   .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:26px}
   details summary{cursor:pointer;font-weight:600;color:var(--accent);margin:6px 0}
+
+  /* ===== MOBILE ===== */
+  @media(max-width:600px){
+    .wrap{padding:12px 10px 80px}
+    .hero h1{font-size:16px}
+    .hero .sub{display:none}
+    #syncDotText{display:none}
+    #syncDot{padding:4px 7px}
+    nav.tabs button{padding:7px 10px;font-size:12px}
+    .card{padding:12px 12px}
+    th,td{padding:6px 7px}
+    .btn{padding:8px 12px;font-size:13px}
+    .btn.sm{padding:4px 8px;font-size:11px}
+    .stat .num{font-size:20px}
+    input,select,textarea{font-size:16px}
+    .row>*{min-width:100px}
+    table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  }
+  @media(max-width:480px){
+    .g2{grid-template-columns:1fr 1fr}
+    .g2.stack{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
@@ -107,6 +129,10 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <span class="phase">เฟส: <b id="phaseLabel">Phase 1 — Cut</b></span>
       <span class="badge">เป้า %ไขมัน 14%</span>
+      <span id="syncDot" title="สถานะ Firebase Sync" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#1a2a22;color:var(--muted);border:1px solid var(--line);white-space:nowrap">
+        <span id="syncDotCircle" style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>
+        <span id="syncDotText">กำลังเชื่อมต่อ...</span>
+      </span>
     </div>
   </header>
 
@@ -730,19 +756,19 @@ function renderFood(){
   Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(d=>{
     const rows=byDate[d];const dk=rows.reduce((s,x)=>s+(x.kcal||0),0),dp=rows.reduce((s,x)=>s+(x.pro||0),0);
     html+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px">${fmtD(d)}
-      <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g โปรตีน':''}</span></h3><table>`;
+      <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g P':''}</span></h3><div style="overflow-x:auto"><table>`;
     rows.forEach(x=>{
       const ml=mealFromTime(x.time);
       const mc=/เทรน/.test(ml)?'tr':/ดึก/.test(ml)?'no':'rest';
       html+=`<tr>
-        <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
+        <td style="white-space:nowrap;color:var(--accent);font-weight:700;font-size:13px">${x.time}</td>
         <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
-        <td>${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-        <td style="white-space:nowrap" class="small muted">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️ ใส่เลข</span>':''}${x.kcal?x.kcal+'kcal':''}${x.pro?'<br>'+x.pro+'g P':''}</td>
+        <td style="word-break:break-word;max-width:180px">${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
+        <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':''}${x.kcal?x.kcal+'<br>kcal':''}${x.pro?' '+x.pro+'g P':''}</td>
         <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
       </tr>`;
     });
-    html+='</table>';
+    html+='</table></div>';
   });
   $('foodList').innerHTML=html;
 }
@@ -1067,9 +1093,21 @@ function fbPush(){
   },800);
 }
 function fbSetStatus(msg,ok){
-  const el=$('fbStatus');if(!el)return;
-  el.textContent=(ok?'🟢 ':ok===false?'🔴 ':'⚪ ')+msg;
-  el.style.color=ok?'var(--accent)':ok===false?'var(--danger)':'var(--muted)';
+  const el=$('fbStatus');if(el){
+    el.textContent=(ok?'🟢 ':ok===false?'🔴 ':'⚪ ')+msg;
+    el.style.color=ok?'var(--accent)':ok===false?'var(--danger)':'var(--muted)';
+  }
+  const dot=$('syncDotCircle'),txt=$('syncDotText'),wrap=$('syncDot');if(!dot)return;
+  if(ok===true){
+    dot.style.background='var(--accent)';dot.style.boxShadow='0 0 6px var(--accent)';
+    txt.textContent='ซิงค์แล้ว';wrap.style.borderColor='var(--accent)';wrap.style.color='var(--accent)';
+  }else if(ok===false){
+    dot.style.background='var(--danger)';dot.style.boxShadow='0 0 6px var(--danger)';
+    txt.textContent='ไม่ได้ซิงค์';wrap.style.borderColor='var(--danger)';wrap.style.color='var(--danger)';
+  }else{
+    dot.style.background='var(--warn)';dot.style.boxShadow='0 0 4px var(--warn)';
+    txt.textContent='กำลังเชื่อมต่อ...';wrap.style.borderColor='var(--line)';wrap.style.color='var(--muted)';
+  }
 }
 function fbConnect(){
   const raw=$('fbConfigInput').value.trim();
