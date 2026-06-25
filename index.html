@@ -322,6 +322,7 @@
       <div id="calcHint" class="small" style="color:var(--accent);margin-top:6px;min-height:16px"></div>
       <div style="margin-top:12px;display:flex;gap:8px">
         <button class="btn" id="f_add">+ เพิ่มบันทึก</button>
+        <button class="btn ghost sm" id="f_calc">🧮 คำนวณจากเมนู</button>
         <button class="btn ghost sm" id="f_now">ตั้งเป็นเวลาปัจจุบัน</button>
       </div>
     </div>
@@ -429,17 +430,31 @@ function renderHabits(){
 }
 
 // ---------- FOOD ----------
-function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';}
+let editId=null,nutLocked=false;
+function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';editId=null;nutLocked=false;$('f_add').textContent='+ เพิ่มบันทึก';if($('calcHint'))$('calcHint').textContent='';}
 $('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
 $('f_items').addEventListener('input',autoNutri);
+['f_pro','f_kcal'].forEach(id=>$(id).addEventListener('input',()=>{nutLocked=true;}));
+$('f_calc').onclick=()=>{nutLocked=false;autoNutri();};
 $('f_add').onclick=()=>{
   const items=$('f_items').value.trim();if(!items){alert('ใส่ว่ากินอะไรก่อนนะครับ');return;}
   const arr=load(K.food,[]);
-  arr.push({id:Date.now(),date:$('f_date').value,time:$('f_time').value,meal:$('f_meal').value,
-    items,kcal:+$('f_kcal').value||null,pro:+$('f_pro').value||null,note:$('f_note').value.trim()});
+  const rec={date:$('f_date').value,time:$('f_time').value,meal:$('f_meal').value,
+    items,kcal:+$('f_kcal').value||null,pro:+$('f_pro').value||null,note:$('f_note').value.trim()};
+  if(editId){const i=arr.findIndex(x=>x.id===editId);if(i>=0)arr[i]={...arr[i],...rec};}
+  else arr.push({id:Date.now(),...rec});
   save(K.food,arr);resetFoodForm();renderFood();
 };
 function delFood(id){if(!confirm('ลบบันทึกนี้?'))return;save(K.food,load(K.food,[]).filter(x=>x.id!==id));renderFood();}
+function editFood(id){
+  const x=load(K.food,[]).find(e=>e.id===id);if(!x)return;
+  $('f_date').value=x.date;$('f_time').value=x.time;$('f_meal').value=x.meal;
+  $('f_items').value=x.items;$('f_kcal').value=x.kcal||'';$('f_pro').value=x.pro||'';$('f_note').value=x.note||'';
+  editId=id;nutLocked=true;
+  $('f_add').textContent='💾 บันทึกการแก้ไข';
+  if($('calcHint'))$('calcHint').textContent='✏️ กำลังแก้ไข — แก้เลข/เมนูแล้วกดบันทึก (กด 🧮 ถ้าจะให้คำนวณใหม่)';
+  $('f_items').scrollIntoView({block:'center'});$('f_pro').focus();
+}
 
 // ---------- quick-add presets (เมนูจริงของ Tony) ----------
 const PRESETS=[
@@ -500,7 +515,10 @@ function calcNutri(text){
 }
 function autoNutri(){
   const hint=$('calcHint');
-  const r=calcNutri($('f_items').value);
+  if(nutLocked)return;
+  const txt=$('f_items').value;
+  if(/กรัม|มล\.|\bml\b/i.test(txt)){if(hint)hint.textContent='📷 มื้อละเอียด — ใส่ kcal/โปรตีนรวมเอง (จากรูป/AI ประเมิน) แล้วกดบันทึก';return;}
+  const r=calcNutri(txt);
   if(r.known===0||r.unknown>0){
     if(hint)hint.textContent=(r.known>0&&r.unknown>0)
       ?'⚠️ บางเมนูประเมินไม่ได้ — แก้ kcal/โปรตีน เอง หรือถ่ายรูปให้ AI ช่วย'
@@ -517,7 +535,7 @@ function quickAdd(p){
     $('f_date').value=todayStr();$('f_time').value=nowHM();
     $('f_meal').value=p.meal;$('f_items').value=p.items;
     $('f_kcal').value=p.kcal||'';$('f_pro').value=p.pro||'';$('f_note').value='';
-    autoNutri();
+    nutLocked=false;autoNutri();
     const el=$('f_items');el.scrollIntoView({block:'center'});el.focus();
     const m=p.sel||'(ระบุเมนู)',i=p.items.indexOf(m);if(i>=0)el.setSelectionRange(i,i+m.length);
     toast(p.prefillMsg||'แก้รายละเอียดแล้วกด “+ เพิ่มบันทึก”');
@@ -548,8 +566,8 @@ function renderFood(){
         <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
         <td style="white-space:nowrap"><span class="pill rest">${x.meal}</span></td>
         <td>${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-        <td style="white-space:nowrap" class="small muted">${x.kcal?x.kcal+'kcal':''}${x.pro?'<br>'+x.pro+'g P':''}</td>
-        <td><button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
+        <td style="white-space:nowrap" class="small muted">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️ ใส่เลข</span>':''}${x.kcal?x.kcal+'kcal':''}${x.pro?'<br>'+x.pro+'g P':''}</td>
+        <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
       </tr>`;
     });
     html+='</table>';
