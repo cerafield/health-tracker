@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tony's Health Tracker — Cut to 14%</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
   :root{
     --bg:#0e1512; --panel:#16201c; --panel2:#1d2a24; --line:#2a3a32;
@@ -112,6 +114,7 @@
     <button data-tab="dash" class="active">📊 ภาพรวม</button>
     <button data-tab="plan">📋 กิจวัตร &amp; แผน</button>
     <button data-tab="food">📓 บันทึกวัน</button>
+    <button data-tab="daily">📅 รายวัน</button>
     <button data-tab="inbody">📈 ผล InBody</button>
     <button data-tab="export">📤 Export / Backup</button>
   </nav>
@@ -338,6 +341,23 @@
       <h2>🍽️ บันทึกอาหาร</h2>
       <h3 style="margin-top:0">⚡ เพิ่มเร็ว <span class="small muted">— แตะปุ่ม = บันทึกทันทีตามเวลาปัจจุบัน</span></h3>
       <div id="f_presets" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <div id="f_custom_presets" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+      <div style="margin-top:8px">
+        <button class="chip" id="cp_toggle" style="border-style:dashed;color:var(--muted)">➕ เพิ่มปุ่มเอง</button>
+      </div>
+      <div id="f_custom_form" style="display:none;margin-top:10px;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px">
+        <div class="small muted" style="margin-bottom:8px">เพิ่มปุ่มเพิ่มเร็วของตัวเอง</div>
+        <div class="row" style="margin:0">
+          <div style="flex:1;min-width:90px"><label>ชื่อปุ่ม</label><input id="cp_label" placeholder="🍳 ชื่อ"></div>
+          <div style="flex:2;min-width:130px"><label>รายการ</label><input id="cp_items" placeholder="รายการอาหาร"></div>
+          <div style="flex:0 0 72px"><label>kcal</label><input type="number" id="cp_kcal" placeholder="—"></div>
+          <div style="flex:0 0 72px"><label>P (g)</label><input type="number" id="cp_pro" placeholder="—"></div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn sm" id="cp_save">+ เพิ่มปุ่ม</button>
+          <button class="btn ghost sm" id="cp_cancel">ยกเลิก</button>
+        </div>
+      </div>
       <div id="f_toast" style="display:none;margin-top:8px" class="note">✅ บันทึกแล้ว</div>
       <h3>✏️ หรือเพิ่มเอง (ปรับเวลา/รายละเอียดได้)</h3>
       <div class="row">
@@ -388,6 +408,16 @@
     </div>
   </section>
 
+  <!-- ===================== DAILY SUMMARY ===================== -->
+  <section class="tab" id="daily">
+    <div class="card">
+      <h2>📅 สรุปรายวัน</h2>
+      <p class="small muted" style="margin:0 0 12px">ดู in-take แต่ละวันย้อนหลัง — kcal · โปรตีน · เทรน · นิสัย</p>
+      <div style="overflow-x:auto" id="dailyList"><p class="muted small">กำลังโหลด...</p></div>
+    </div>
+    <div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า (2,025+) &amp; P ≥ 150g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ 100g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น</div>
+  </section>
+
   <!-- ===================== INBODY ===================== -->
   <section class="tab" id="inbody">
     <div class="card">
@@ -434,7 +464,29 @@
       <textarea id="reportOut" style="min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px" placeholder="กด “สร้างรายงานสรุป”..."></textarea>
     </div>
     <div class="card" style="margin-top:14px">
-      <div class="note">ℹ️ ข้อมูลทั้งหมดเก็บใน <b>เบราว์เซอร์เครื่องนี้</b> (localStorage) — ไม่ได้ส่งขึ้นอินเทอร์เน็ตอัตโนมัติ ควรกด Backup เก็บไว้เป็นระยะ และอย่าล้างประวัติเบราว์เซอร์แบบลบ site data</div>
+      <h2>🔗 Cloud Sync (Firebase)</h2>
+      <div id="fbStatus" class="small" style="margin-bottom:12px;color:var(--muted)">⚪ ยังไม่เชื่อมต่อ — ข้อมูลเก็บเฉพาะเครื่องนี้</div>
+      <details>
+        <summary>🔧 ตั้งค่าให้ซิงค์ข้ามมือถือ/คอม (แตะเพื่อดูวิธี)</summary>
+        <div style="margin-top:12px">
+          <div class="note small" style="margin-bottom:12px">
+            1. ไปที่ <b>console.firebase.google.com</b> (login ด้วย Gmail ที่มีอยู่)<br>
+            2. สร้าง Project → Build → <b>Realtime Database</b> → Create database → <b>test mode</b><br>
+            3. Project Settings → Your apps → Add app (Web) → ก็อป <b>firebaseConfig</b><br>
+            4. วาง JSON ด้านล่าง กด "เชื่อมต่อ" — ทุกอุปกรณ์ที่ใส่ config เดียวกันจะซิงค์อัตโนมัติ
+          </div>
+          <label>Firebase Config (วาง JSON จาก Firebase Console)</label>
+          <textarea id="fbConfigInput" style="min-height:100px;font-family:ui-monospace,monospace;font-size:12px" placeholder='{"apiKey":"AIza...","authDomain":"xxx.firebaseapp.com","databaseURL":"https://xxx-default-rtdb.firebaseio.com","projectId":"xxx",...}'></textarea>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn sm" id="fbConnect">🔗 เชื่อมต่อ</button>
+            <button class="btn ghost sm" id="fbDisconnect">ตัดการเชื่อมต่อ</button>
+            <button class="btn ghost sm" id="fbPushNow">⬆️ Push ข้อมูลตอนนี้</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div class="note small">ℹ️ ข้อมูลเก็บใน <b>localStorage เครื่องนี้</b> เสมอ — Firebase เป็นตัวซิงค์เพิ่ม ไม่ใช่แทน · ควร Backup JSON ไว้เป็นระยะ</div>
     </div>
   </section>
 
@@ -443,7 +495,7 @@
 
 <script>
 "use strict";
-const K={food:'ht_food',inbody:'ht_inbody',habits:'ht_habits',train:'ht_train',seed:'ht_seeded_v1'};
+const K={food:'ht_food',inbody:'ht_inbody',habits:'ht_habits',train:'ht_train',custom:'ht_custom',seed:'ht_seeded_v1'};
 function mealFromTime(t){
   if(!t)return'';
   const[h,m]=t.split(':').map(Number),hm=h*60+m;
@@ -456,7 +508,7 @@ function mealFromTime(t){
 }
 const $=id=>document.getElementById(id);
 const load=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))??def}catch(e){return def}};
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+function save(k,v){localStorage.setItem(k,JSON.stringify(v));localStorage.setItem('ht_ts',Date.now());fbPush();}
 const todayStr=()=>new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 const fmtD=s=>{if(!s)return'';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2)};
 
@@ -479,6 +531,7 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
   b.classList.add('active'); $(b.dataset.tab).classList.add('active');
   if(b.dataset.tab==='inbody')renderInbody();
   if(b.dataset.tab==='dash')renderDash();
+  if(b.dataset.tab==='daily')renderDaily();
 });
 
 // ---------- HABITS ----------
@@ -528,6 +581,7 @@ const PRESETS=[
   {label:'🥚 ไข่เช้า ✏️',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 2',pro:20,kcal:178,prefill:true,sel:'2',prefillMsg:'ปรับจำนวนไข่ได้ แล้วกด “+ เพิ่มบันทึก”'},
   {label:'🥚 ไข่สาย ✏️',items:'ไข่ขาวลวก 4 + ไข่แดงลวก 1',pro:17,kcal:123,prefill:true,sel:'1',prefillMsg:'มื้อ 13:00 แทนอกไก่ — ปรับจำนวนได้'},
   {label:'☕ กาแฟดำ',items:'กาแฟดำไม่ใส่น้ำตาล',kcal:5},
+  {label:'🍊 Vit C',items:'วิตามิน C 500mg',kcal:0},
   {label:'🍱 มื้อแม่ทำ ✏️',items:'แม่ทำ: (ระบุเมนู) + น้ำมันมะกอก 1 ชต. + ฟิชออยล์ 2 เม็ด',pro:45,kcal:450,prefill:true,sel:'(ระบุเมนู)',prefillMsg:'พิมพ์ว่าแม่ทำอะไร แล้วกด “+ เพิ่มบันทึก” (ถ่ายรูปให้ AI ช่วยประเมิน → เขียนทับโปรตีน/แคลฯ ได้)'},
   {label:'🦐 สะตอผัดกุ้ง ✏️',items:'สะตอผัดกุ้ง (กุ้ง 120g + สะตอ 100 กรัม + น้ำมัน 1 ชต.)',prefill:true,sel:'120g',prefillMsg:'ปรับน้ำหนักกุ้ง/สะตอได้ แล้วกด “+ เพิ่มบันทึก”'},
   {label:'🍚 ข้าวกล้อง ✏️',items:'ข้าวกล้อง 150 กรัม',prefill:true,sel:'150',prefillMsg:'ระบุกรัมที่กิน แล้วกด “+ เพิ่มบันทึก”'},
@@ -909,7 +963,7 @@ $('genReport').onclick=()=>{
   $('reportOut').value=r;$('reportOut').select();
 };
 $('dlBackup').onclick=()=>{
-  const data={inbody:load(K.inbody,[]),food:load(K.food,[]),habits:load(K.habits,{}),train:load(K.train,[]),exported:new Date().toISOString()};
+  const data={inbody:load(K.inbody,[]),food:load(K.food,[]),habits:load(K.habits,{}),train:load(K.train,[]),custom:load(K.custom,[]),exported:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='health-tracker-backup-'+todayStr()+'.json';a.click();
@@ -917,16 +971,163 @@ $('dlBackup').onclick=()=>{
 $('upBackup').onchange=e=>{
   const f=e.target.files[0];if(!f)return;const rd=new FileReader();
   rd.onload=()=>{try{const d=JSON.parse(rd.result);
-    if(d.inbody)save(K.inbody,d.inbody);if(d.food)save(K.food,d.food);if(d.habits)save(K.habits,d.habits);if(d.train)save(K.train,d.train);
+    if(d.inbody)save(K.inbody,d.inbody);if(d.food)save(K.food,d.food);if(d.habits)save(K.habits,d.habits);if(d.train)save(K.train,d.train);if(d.custom)save(K.custom,d.custom);
     alert('โหลด Backup สำเร็จ');renderAll();}catch(err){alert('ไฟล์ไม่ถูกต้อง');}};
   rd.readAsText(f);
 };
 $('clearAll').onclick=()=>{if(!confirm('ล้างข้อมูลทั้งหมด (อาหาร+InBody+นิสัย)? ลบแล้วกู้ไม่ได้'))return;
   if(!confirm('แน่ใจนะครับ? แนะนำกด Backup ก่อน'))return;
-  [K.food,K.inbody,K.habits,K.train,K.seed].forEach(k=>localStorage.removeItem(k));location.reload();};
+  [K.food,K.inbody,K.habits,K.train,K.custom,K.seed].forEach(k=>localStorage.removeItem(k));location.reload();};
+
+// ---------- CUSTOM PRESETS ----------
+function renderCustomPresets(){
+  const arr=load(K.custom,[]);
+  const box=$('f_custom_presets');if(!box)return;
+  box.innerHTML=arr.length
+    ?arr.map((p,i)=>`<span style="display:inline-flex;align-items:center;gap:3px">
+        <button class="chip chip-food" data-cp="${i}">${p.label}</button>
+        <button class="btn del sm" style="padding:3px 7px;border-radius:6px" onclick="delCustomPreset(${i})">✕</button>
+      </span>`).join('')
+    :'';
+  box.querySelectorAll('button[data-cp]').forEach(b=>b.onclick=()=>{
+    const p=load(K.custom,[])[+b.dataset.cp];if(!p)return;
+    const arr2=load(K.food,[]);
+    arr2.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:mealFromTime(nowHM()),items:p.items,kcal:p.kcal||null,pro:p.pro||null,note:''});
+    save(K.food,arr2);renderFood();toast(p.label);
+  });
+}
+function addCustomPreset(){
+  const label=$('cp_label').value.trim(),items=$('cp_items').value.trim();
+  if(!label||!items){alert('ใส่ชื่อปุ่มและรายการด้วยนะ');return;}
+  const arr=load(K.custom,[]);
+  arr.push({id:Date.now(),label,items,kcal:+$('cp_kcal').value||null,pro:+$('cp_pro').value||null});
+  save(K.custom,arr);
+  ['cp_label','cp_items','cp_kcal','cp_pro'].forEach(id=>$(id).value='');
+  $('f_custom_form').style.display='none';
+  renderCustomPresets();toast('เพิ่มปุ่ม "'+label+'" แล้ว');
+}
+function delCustomPreset(i){
+  if(!confirm('ลบปุ่มนี้?'))return;
+  const arr=load(K.custom,[]);arr.splice(i,1);save(K.custom,arr);renderCustomPresets();
+}
+
+// ---------- DAILY SUMMARY ----------
+function renderDaily(){
+  const food=load(K.food,[]),train=load(K.train,[]),hab=load(K.habits,{});
+  const byDate={};
+  food.forEach(x=>{
+    if(!byDate[x.date])byDate[x.date]={kcal:0,pro:0,n:0};
+    byDate[x.date].kcal+=(x.kcal||0);byDate[x.date].pro+=(x.pro||0);byDate[x.date].n++;
+  });
+  train.forEach(x=>{
+    if(!byDate[x.date])byDate[x.date]={kcal:0,pro:0,n:0};
+    (byDate[x.date].trains=byDate[x.date].trains||[]).push(x.act);
+  });
+  const t=todayStr();if(!byDate[t])byDate[t]={kcal:0,pro:0,n:0};
+  const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+  if(!dates.length){$('dailyList').innerHTML='<p class="muted small">ยังไม่มีข้อมูล</p>';return;}
+  const totKcal=food.reduce((s,x)=>s+(x.kcal||0),0),totPro=food.reduce((s,x)=>s+(x.pro||0),0),nDays=dates.length;
+  let html=`<div class="grid g3" style="margin-bottom:14px">
+    <div class="card stat"><div class="num">${nDays}</div><div class="lbl">วันที่มีข้อมูล</div></div>
+    <div class="card stat"><div class="num">${nDays?Math.round(totKcal/nDays):0}</div><div class="lbl">kcal เฉลี่ย/วัน</div></div>
+    <div class="card stat"><div class="num">${nDays?Math.round(totPro/nDays):0}g</div><div class="lbl">โปรตีนเฉลี่ย/วัน</div></div>
+  </div><div style="overflow-x:auto"><table>
+  <tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>✅ นิสัย</th><th>สรุป</th></tr>`;
+  dates.forEach(d=>{
+    const day=byDate[d],kcal=day.kcal,pro=day.pro;
+    const kc=kcal>=2025?'var(--accent)':kcal>=1575?'var(--warn)':kcal>0?'var(--danger)':'var(--muted)';
+    const pc=pro>=150?'var(--accent)':pro>=100?'var(--warn)':pro>0?'var(--danger)':'var(--muted)';
+    const isToday=d===t;
+    const status=isToday&&!kcal?'📝':kcal>=2025&&pro>=150?'🟢':kcal>=1575&&pro>=100?'🟡':kcal>0||pro>0?'🔴':'📝';
+    const trainStr=(day.trains||[]).join(' · ')||'—';
+    const habDay=hab[d]||{};
+    const habDone=Object.values(habDay).filter(Boolean).length;
+    html+=`<tr${isToday?' style="background:var(--panel2)"':''}>
+      <td style="font-weight:700;white-space:nowrap">${fmtD(d)}${isToday?' <span class="pill ok" style="font-size:10px">วันนี้</span>':''}</td>
+      <td style="color:${kc};font-weight:700;white-space:nowrap">${kcal||'—'}</td>
+      <td style="color:${pc};font-weight:700;white-space:nowrap">${pro?pro+'g':'—'}</td>
+      <td class="small muted">${trainStr}</td>
+      <td class="small">${habDone?habDone+'/'+HAB.length:'—'}</td>
+      <td style="font-size:18px;text-align:center">${status}</td>
+    </tr>`;
+  });
+  html+='</table></div>';
+  $('dailyList').innerHTML=html;
+}
+
+// ---------- FIREBASE SYNC ----------
+let _fbDb=null,_fbIgnore=false,_fbTimer;
+function fbPush(){
+  if(!_fbDb||_fbIgnore)return;
+  clearTimeout(_fbTimer);
+  _fbTimer=setTimeout(()=>{
+    const d={food:load(K.food,[]),inbody:load(K.inbody,[]),habits:load(K.habits,{}),
+              train:load(K.train,[]),custom:load(K.custom,[]),_ts:Date.now()};
+    _fbDb.ref('health/tony5847').set(d).catch(e=>fbSetStatus('push ล้มเหลว: '+e.message,false));
+  },800);
+}
+function fbSetStatus(msg,ok){
+  const el=$('fbStatus');if(!el)return;
+  el.textContent=(ok?'🟢 ':ok===false?'🔴 ':'⚪ ')+msg;
+  el.style.color=ok?'var(--accent)':ok===false?'var(--danger)':'var(--muted)';
+}
+function fbConnect(){
+  const raw=$('fbConfigInput').value.trim();
+  let cfg;try{cfg=JSON.parse(raw);}catch(e){alert('JSON ไม่ถูกต้อง ตรวจสอบอีกครั้ง');return;}
+  if(!cfg.databaseURL){alert('ไม่พบ databaseURL ใน config');return;}
+  try{
+    if(typeof firebase==='undefined'){fbSetStatus('โหลด Firebase SDK ไม่ได้',false);return;}
+    firebase.apps.forEach(a=>a.delete());
+    firebase.initializeApp(cfg);
+    _fbDb=firebase.database();
+    localStorage.setItem('ht_fb_cfg',raw);
+    fbSetStatus('กำลังเชื่อมต่อ...');
+    _fbDb.ref('health/tony5847').on('value',snap=>{
+      fbSetStatus('เชื่อมต่อแล้ว — sync อัตโนมัติ ✓',true);
+      const d=snap.val();if(!d)return fbPush();
+      const remoteTs=d._ts||0,localTs=+localStorage.getItem('ht_ts')||0;
+      if(remoteTs>localTs){
+        _fbIgnore=true;
+        if(d.food)localStorage.setItem(K.food,JSON.stringify(d.food));
+        if(d.inbody)localStorage.setItem(K.inbody,JSON.stringify(d.inbody));
+        if(d.habits)localStorage.setItem(K.habits,JSON.stringify(d.habits));
+        if(d.train)localStorage.setItem(K.train,JSON.stringify(d.train));
+        if(d.custom)localStorage.setItem(K.custom,JSON.stringify(d.custom));
+        localStorage.setItem('ht_ts',remoteTs);
+        renderAll();
+        setTimeout(()=>{_fbIgnore=false;},1200);
+      }
+    },err=>fbSetStatus('ล้มเหลว: '+err.message,false));
+  }catch(e){fbSetStatus('Firebase error: '+e.message,false);_fbDb=null;}
+}
+function fbDisconnect(){
+  if(_fbDb){try{_fbDb.goOffline();firebase.apps.forEach(a=>a.delete());}catch(e){}}
+  _fbDb=null;localStorage.removeItem('ht_fb_cfg');fbSetStatus('ยังไม่เชื่อมต่อ');
+}
 
 // ---------- init ----------
-function renderAll(){renderDash();renderFood();renderInbody();renderPresets();renderTrainPresets();renderTrain();}
+function renderAll(){renderDash();renderFood();renderInbody();renderPresets();renderTrainPresets();renderTrain();renderCustomPresets();}
+
+// custom preset UI wiring
+$('cp_toggle').onclick=()=>{
+  const f=$('f_custom_form');f.style.display=f.style.display==='none'?'block':'none';
+};
+$('cp_save').onclick=addCustomPreset;
+$('cp_cancel').onclick=()=>{$('f_custom_form').style.display='none';};
+
+// Firebase UI wiring
+$('fbConnect').onclick=fbConnect;
+$('fbDisconnect').onclick=fbDisconnect;
+$('fbPushNow').onclick=()=>{if(!_fbDb){alert('ยังไม่ได้เชื่อมต่อ');return;}fbSetStatus('กำลัง push...');fbPush();};
+
+// auto-reconnect Firebase if config saved
+(function(){
+  const saved=localStorage.getItem('ht_fb_cfg');
+  if(!saved)return;
+  $('fbConfigInput').value=saved;
+  fbConnect();
+})();
+
 resetFoodForm();resetTrainForm();renderAll();
 </script>
 </body>
