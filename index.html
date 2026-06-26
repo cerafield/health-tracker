@@ -982,8 +982,16 @@ function renderTrain(){
 }
 
 const TARGET_PRO=165, TARGET_KCAL_TRAIN=2250, TARGET_KCAL_REST=1950;
-function getDayType(){return localStorage.getItem('ht_daytype')||'train';}
-function setDayType(t){localStorage.setItem('ht_daytype',t);updateTodayBars();updateMiniSummary();}
+function getDayType(){
+  const ov=localStorage.getItem('ht_daytype_ov');
+  if(ov)return ov;
+  return load(K.train,[]).some(x=>x.date===todayStr())?'train':'rest';
+}
+function setDayType(t){
+  if(t===null)localStorage.removeItem('ht_daytype_ov');
+  else localStorage.setItem('ht_daytype_ov',t);
+  updateTodayBars();updateMiniSummary();
+}
 function getTargetKcal(){return getDayType()==='rest'?TARGET_KCAL_REST:TARGET_KCAL_TRAIN;}
 function calcStreak(){
   const days=new Set(load(K.food,[]).map(x=>x.date));
@@ -1016,10 +1024,14 @@ function updateTodayBars(){
   const trainSummary=trains.length?'🏋️ เทรนวันนี้: '+trains.map(x=>x.act).join(' · '):'';
   const dt=getDayType(),tkcal=getTargetKcal();
   const streak=calcStreak();
+  const isAuto=!localStorage.getItem('ht_daytype_ov');
   const toggle=`<div style=”display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap”>
     <button class=”btn sm${dt==='train'?'':' ghost'}” onclick=”setDayType('train')” style=”font-size:12px”>🔵 วันเทรน 2,250</button>
     <button class=”btn sm${dt==='rest'?'':' ghost'}” onclick=”setDayType('rest')” style=”font-size:12px”>⚪ วันพัก 1,950</button>
-    ${streak>=2?`<span style=”font-size:12px;font-weight:700;color:var(--warn);margin-left:4px”>🔥 ${streak} วันติด</span>`:''}
+    ${isAuto
+      ?`<span style=”font-size:11px;color:var(--muted)”>🤖 อัตโนมัติ</span>`
+      :`<button class=”btn ghost sm” onclick=”setDayType(null)” style=”font-size:11px;padding:3px 8px”>↩ อัตโนมัติ</button>`}
+    ${streak>=2?`<span style=”font-size:12px;font-weight:700;color:var(--warn);margin-left:2px”>🔥 ${streak} วันติด</span>`:''}
   </div>`;
   w.innerHTML=toggle+progBar('🍗','โปรตีน',pro,TARGET_PRO,'g')+progBar('🔥','พลังงาน',kcal,tkcal,'kcal')+
     (items.length===0
