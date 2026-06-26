@@ -802,7 +802,7 @@ function renderFood(){
     $('foodList').innerHTML='<p class="muted small" style="padding:8px 0">ยังไม่มีบันทึกวันนี้ — เพิ่มมื้อด้านบนได้เลย</p>';
   } else {
     const dk=todayArr.reduce((s,x)=>s+(x.kcal||0),0),dp=todayArr.reduce((s,x)=>s+(x.pro||0),0);
-    const kc=dk>=2025?'var(--accent)':dk>=1575?'var(--warn)':'var(--blue)';
+    const _tk=getTargetKcal(),kc=dk>=_tk?'var(--accent)':dk>=_tk*0.7?'var(--warn)':'var(--blue)';
     const pc=dp>=150?'var(--accent)':dp>=100?'var(--warn)':'var(--blue)';
     $('foodList').innerHTML=foodRows(todayArr)+
       `<div style="display:flex;gap:16px;padding:8px 2px 4px;border-top:1px solid var(--line);margin-top:2px">
