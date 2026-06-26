@@ -96,6 +96,7 @@
   details summary{cursor:pointer;font-weight:600;color:var(--accent);margin:6px 0}
   .arr{display:inline-block;transition:transform .2s}
   details[open] .arr{transform:rotate(90deg)}
+  button,.btn,.chip{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 
   /* ===== MOBILE ===== */
   @media(max-width:600px){
@@ -172,6 +173,7 @@
           <div id="progressBar" style="height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .5s"></div>
         </div>
         <div class="small muted" id="progressText" style="margin-top:6px">—</div>
+        <div class="small" id="progressETA" style="margin-top:4px;color:var(--muted)"></div>
         <div class="note" style="margin-top:12px">ต้องลดไขมัน ~4 kg ที่อัตรา ~0.4 kg/สัปดาห์ → <b>~3–3.5 เดือน</b> (เริ่มวัด 19 มิ.ย. 2026)</div>
       </div>
 
@@ -181,6 +183,7 @@
         <h3>นิสัยอื่น ๆ (แตะติ๊ก)</h3>
         <div id="habits" class="grid" style="grid-template-columns:1fr 1fr;gap:8px"></div>
         <p class="small muted" style="margin-top:10px">จดอาหารในแท็บ “บันทึกอาหาร” แล้วหลอดด้านบนอัปเดตเอง · ใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
+        <div id="proAlert" class="note danger small" style="display:none;margin-bottom:8px"></div>
         <div class="note warn">💡 ส่อง %ไขมัน + เอว + กระจก เป็นหลัก อย่ายึดตัวเลขตาชั่งรายวัน</div>
       </div>
     </div>
@@ -541,7 +544,7 @@ function mealFromTime(t){
   return'ดึก';
 }
 const $=id=>document.getElementById(id);
-const load=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))??def}catch(e){return def}};
+const load=(k,def)=>{try{const v=JSON.parse(localStorage.getItem(k));return v!=null?v:def}catch(e){return def}};
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));localStorage.setItem('ht_ts',Date.now());fbPush();}
 const todayStr=()=>new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 const fmtD=s=>{if(!s)return'';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2)};
@@ -559,14 +562,19 @@ if(!load(K.seed,false)){
 }
 
 // ---------- tabs ----------
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('section.tab').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active'); $(b.dataset.tab).classList.add('active');
-  if(b.dataset.tab==='inbody')renderInbody();
-  if(b.dataset.tab==='dash')renderDash();
-  if(b.dataset.tab==='daily')renderDaily();
-  if(b.dataset.tab==='food')renderHabits();
+document.querySelectorAll('nav.tabs button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('nav.tabs button').forEach(function(x){x.classList.remove('active');});
+    document.querySelectorAll('section.tab').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    var sec=$(b.dataset.tab);if(sec)sec.classList.add('active');
+    try{
+      if(b.dataset.tab==='inbody')renderInbody();
+      if(b.dataset.tab==='dash')renderDash();
+      if(b.dataset.tab==='daily')renderDaily();
+      if(b.dataset.tab==='food')renderHabits();
+    }catch(e){console.error('tab render:',e);}
+  });
 });
 
 // ---------- HABITS ----------
@@ -841,37 +849,63 @@ $('i_add').onclick=()=>{
 };
 function delInbody(d){if(!confirm('ลบผลวัด '+fmtD(d)+'?'))return;save(K.inbody,load(K.inbody,[]).filter(x=>x.date!==d));renderInbody();renderDash();}
 
-function lineChart(data,color,opts={}){
-  data=data.filter(p=>p.v!=null);
+function lineChart(data,color,opts){
+  opts=opts||{};
+  data=data.filter(function(p){return p.v!=null;});
   if(data.length<1)return'<p class="small muted">ยังไม่มีข้อมูล</p>';
   const W=300,H=150,pad=28;
-  const vals=data.map(p=>p.v);let mn=Math.min(...vals),mx=Math.max(...vals);
+  const vals=data.map(function(p){return p.v;});
+  let mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
   if(opts.target!=null){mn=Math.min(mn,opts.target);mx=Math.max(mx,opts.target);}
   if(mn===mx){mn-=1;mx+=1;}const rng=mx-mn||1;
-  const x=i=>pad+(data.length===1?(W-2*pad)/2:i*(W-2*pad)/(data.length-1));
-  const y=v=>H-pad-((v-mn)/rng)*(H-2*pad);
-  let pts=data.map((p,i)=>`${x(i)},${y(p.v)}`).join(' ');
-  let dots=data.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.v)}" r="3.2" fill="${color}"/>
-    <text x="${x(i)}" y="${y(p.v)-8}" fill="var(--text)" font-size="9" text-anchor="middle">${p.v}</text>`).join('');
-  let labels=data.map((p,i)=>`<text x="${x(i)}" y="${H-8}" fill="var(--muted)" font-size="8" text-anchor="middle">${fmtD(p.d)}</text>`).join('');
+  const cx=function(i){return pad+(data.length===1?(W-2*pad)/2:i*(W-2*pad)/(data.length-1));};
+  const cy=function(v){return H-pad-((v-mn)/rng)*(H-2*pad);};
+  const clamp=function(v){return Math.max(pad,Math.min(H-pad,v));};
+  let pts=data.map(function(p,i){return cx(i)+','+cy(p.v);}).join(' ');
+  let dots=data.map(function(p,i){return '<circle cx="'+cx(i)+'" cy="'+cy(p.v)+'" r="3.2" fill="'+color+'"/><text x="'+cx(i)+'" y="'+(cy(p.v)-8)+'" fill="var(--text)" font-size="9" text-anchor="middle">'+p.v+'</text>';}).join('');
+  let labels=data.map(function(p,i){return '<text x="'+cx(i)+'" y="'+(H-8)+'" fill="var(--muted)" font-size="8" text-anchor="middle">'+fmtD(p.d)+'</text>';}).join('');
   let tline='';
-  if(opts.target!=null){const ty=y(opts.target);
-    tline=`<line x1="${pad}" y1="${ty}" x2="${W-pad}" y2="${ty}" stroke="var(--accent)" stroke-dasharray="4 3" opacity=".7"/>
-    <text x="${W-pad}" y="${ty-4}" fill="var(--accent)" font-size="9" text-anchor="end">เป้า ${opts.target}</text>`;}
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%">
-    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.2"/>
-    ${tline}${dots}${labels}</svg>`;
+  if(opts.target!=null){const ty=cy(opts.target);
+    tline='<line x1="'+pad+'" y1="'+ty+'" x2="'+(W-pad)+'" y2="'+ty+'" stroke="var(--accent)" stroke-dasharray="4 3" opacity=".7"/><text x="'+(W-pad)+'" y="'+(ty-4)+'" fill="var(--accent)" font-size="9" text-anchor="end">เป้า '+opts.target+'</text>';}
+  // linear trend line
+  let trend='';
+  if(opts.trend&&data.length>=3){
+    const n=data.length;
+    let sx=0,sy=0,sxy=0,sx2=0;
+    for(let i=0;i<n;i++){sx+=i;sy+=data[i].v;sxy+=i*data[i].v;sx2+=i*i;}
+    const denom=n*sx2-sx*sx;
+    if(denom!==0){
+      const m=(n*sxy-sx*sy)/denom,b=(sy-m*sx)/n;
+      const ty0=clamp(cy(b)),ty1=clamp(cy(m*(n-1)+b));
+      trend='<line x1="'+cx(0)+'" y1="'+ty0+'" x2="'+cx(n-1)+'" y2="'+ty1+'" stroke="var(--purple)" stroke-dasharray="4 2" stroke-width="1.8" opacity=".7"/>';
+      // if trending toward target, show where line hits target
+      if(opts.target!=null&&m!==0){
+        const xAtTarget=(opts.target-b)/m;
+        if(xAtTarget>n-1&&xAtTarget<n+365){
+          const etaDate=new Date(data[n-1].d);
+          const daysPerStep=(new Date(data[n-1].d)-new Date(data[0].d))/86400000/(n-1)||1;
+          const daysLeft=Math.round((xAtTarget-(n-1))*daysPerStep);
+          if(daysLeft>0&&daysLeft<730){
+            etaDate.setDate(etaDate.getDate()+daysLeft);
+            const mo=etaDate.getMonth()+1,dy=etaDate.getDate();
+            trend+='<text x="'+(W-pad)+'" y="'+(pad+10)+'" fill="var(--purple)" font-size="8" text-anchor="end">→ เป้า ~'+dy+'/'+mo+'</text>';
+          }
+        }
+      }
+    }
+  }
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2.2"/>'+tline+trend+dots+labels+'</svg>';
 }
 function renderInbody(){
   const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   $('chart_weight').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.weight})),'var(--blue)',{target:70});
-  $('chart_bf').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.bf})),'var(--warn)',{target:14});
+  $('chart_bf').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.bf})),'var(--warn)',{target:14,trend:true});
   $('chart_smm').innerHTML=lineChart(arr.map(x=>({d:x.date,v:x.smm})),'var(--accent)');
   let t='<tr><th>วันที่</th><th>น้ำหนัก</th><th>%ไขมัน</th><th>SMM</th><th>ช่องท้อง</th><th>เอว</th><th>Score</th><th>โน้ต</th><th></th></tr>';
   arr.slice().reverse().forEach(x=>{t+=`<tr>
     <td style="white-space:nowrap;font-weight:700">${fmtD(x.date)}</td>
-    <td>${x.weight??'—'}</td><td>${x.bf??'—'}</td><td>${x.smm??'—'}</td>
-    <td>${x.vis??'—'}</td><td>${x.waist??'—'}</td><td>${x.score??'—'}</td>
+    <td>${x.weight!=null?x.weight:'—'}</td><td>${x.bf!=null?x.bf:'—'}</td><td>${x.smm!=null?x.smm:'—'}</td>
+    <td>${x.vis!=null?x.vis:'—'}</td><td>${x.waist!=null?x.waist:'—'}</td><td>${x.score!=null?x.score:'—'}</td>
     <td class="small muted">${x.note||''}</td>
     <td><button class="btn del sm" onclick="delInbody('${x.date}')">ลบ</button></td></tr>`;});
   $('inbodyTable').innerHTML=t;
@@ -984,7 +1018,7 @@ const TARGET_KCAL_TRAIN=2250, TARGET_KCAL_REST=1950;
 function getTargetPro(){
   const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   const last=arr.length?arr[arr.length-1]:null;
-  return last?.weight?Math.round(last.weight*2.25/5)*5:165;
+  return last&&last.weight?Math.round(last.weight*2.25/5)*5:165;
 }
 function getDayType(){
   const ov=localStorage.getItem('ht_daytype_ov');
@@ -1067,7 +1101,8 @@ function updateTodayBars(){
   </div>`;
   const tpro=getTargetPro();
   const _ibArr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-  const _wt=_ibArr.length?_ibArr[_ibArr.length-1]?.weight:null;
+  const _ibLast=_ibArr.length?_ibArr[_ibArr.length-1]:null;
+  const _wt=_ibLast?_ibLast.weight:null;
   const gkg=_wt&&pro>0?` · ${(pro/_wt).toFixed(2)} g/kg`:'';
   w.innerHTML=toggle+progBar('🍗','โปรตีน'+gkg,pro,tpro,'g',{b1:53.3,b2:80,proMode:true})+progBar('🔥','พลังงาน',kcal,tkcal,'kcal',{b1:70})+
     (items.length===0
@@ -1097,12 +1132,12 @@ function renderDash(){
   if(!arr.length)return;
   const last=arr[arr.length-1],prev=arr.length>1?arr[arr.length-2]:null;
   const first=arr[0];
-  const setStat=(id,val,unit='')=>{$(id).textContent=(val??'—')+(val!=null?unit:'');};
+  const setStat=(id,val,unit='')=>{$(id).textContent=(val!=null?val:'—')+(val!=null?unit:'');};
   setStat('d_weight',last.weight);setStat('d_bf',last.bf,'%');setStat('d_smm',last.smm);setStat('d_vis',last.vis);
   // update goal table "ตอนนี้" column
-  if($('p_bf_now'))$('p_bf_now').textContent=(last.bf??'—')+(last.bf!=null?'%':'');
-  if($('p_smm_now'))$('p_smm_now').textContent=(last.smm??'—')+(last.smm!=null?' kg':'');
-  if($('p_w_now'))$('p_w_now').textContent=(last.weight??'—')+(last.weight!=null?' kg':'');
+  if($('p_bf_now'))$('p_bf_now').textContent=(last.bf!=null?last.bf:'—')+(last.bf!=null?'%':'');
+  if($('p_smm_now'))$('p_smm_now').textContent=(last.smm!=null?last.smm:'—')+(last.smm!=null?' kg':'');
+  if($('p_w_now'))$('p_w_now').textContent=(last.weight!=null?last.weight:'—')+(last.weight!=null?' kg':'');
   if($('p_fat_now')&&last.weight!=null&&last.bf!=null)$('p_fat_now').textContent=(last.weight*last.bf/100).toFixed(1)+' kg';
   const delta=(id,cur,pre,inv=false,unit='')=>{
     if(pre==null||cur==null){$(id).textContent='';return;}
@@ -1110,16 +1145,54 @@ function renderDash(){
     $(id).textContent=(diff>0?'▲ +':'▼ ')+diff+unit+' จากครั้งก่อน';
     $(id).className='delta '+(diff===0?'muted':good?'up':'bad');
   };
-  delta('d_weight_d',last.weight,prev?.weight,true,'kg');
-  delta('d_bf_d',last.bf,prev?.bf,true,'%');
-  delta('d_smm_d',last.smm,prev?.smm,false,'kg');
-  delta('d_vis_d',last.vis,prev?.vis,true,'');
+  delta('d_weight_d',last.weight,prev?prev.weight:null,true,'kg');
+  delta('d_bf_d',last.bf,prev?prev.bf:null,true,'%');
+  delta('d_smm_d',last.smm,prev?prev.smm:null,false,'kg');
+  delta('d_vis_d',last.vis,prev?prev.vis:null,true,'');
   // progress to 14%
   if(last.bf!=null){
-    const start=first.bf??18.9,target=14;
+    const start=first.bf!=null?first.bf:18.9,target=14;
     const pct=Math.max(0,Math.min(100,((start-last.bf)/(start-target))*100));
     $('progressBar').style.width=pct+'%';
-    $('progressText').innerHTML=`จาก ${start}% → ตอนนี้ <b>${last.bf}%</b> → เป้า ${target}% &nbsp; (${pct.toFixed(0)}% ของทาง)`;
+    $('progressText').innerHTML='จาก '+start+'% → ตอนนี้ <b>'+last.bf+'%</b> → เป้า '+target+'% &nbsp; ('+pct.toFixed(0)+'% ของทาง)';
+    // ETA via linear regression on all bf% data points
+    const bfArr=arr.filter(function(x){return x.bf!=null;});
+    const etaEl=$('progressETA');
+    if(etaEl&&bfArr.length>=2){
+      const t0=new Date(bfArr[0].date).getTime();
+      let sx=0,sy=0,sxy=0,sx2=0;
+      const n=bfArr.length;
+      bfArr.forEach(function(x){const xi=(new Date(x.date).getTime()-t0)/86400000;sx+=xi;sy+=x.bf;sxy+=xi*x.bf;sx2+=xi*xi;});
+      const denom=n*sx2-sx*sx;
+      if(denom!==0){
+        const slope=(n*sxy-sx*sy)/denom; // bf% per day
+        if(slope<0){
+          const daysLeft=Math.round((last.bf-14)/(-slope));
+          const eta=new Date();eta.setDate(eta.getDate()+daysLeft);
+          const wkRate=(-slope*7).toFixed(2);
+          const etaMo=eta.getMonth()+1,etaDy=eta.getDate(),etaYr=eta.getFullYear();
+          etaEl.innerHTML='📈 ลดได้ <b style="color:var(--accent)">'+wkRate+'%/สัปดาห์</b> — ถึงเป้า 14% ประมาณ <b style="color:var(--accent)">'+etaDy+'/'+etaMo+'/'+(etaYr+543)+'</b> (~'+daysLeft+' วัน)';
+        } else {
+          etaEl.innerHTML='<span style="color:var(--warn)">⚠️ %ไขมันยังไม่มีแนวโน้มลง — ตรวจสอบแผนการกิน</span>';
+        }
+      }
+    }
+  }
+  // protein alert: check avg over last 3 logged days
+  const tp=getTargetPro();
+  const allFood=load(K.food,[]);
+  const loggedDates=Array.from(new Set(allFood.map(function(x){return x.date;}))).sort().slice(-3);
+  if(loggedDates.length>=2){
+    const proMap={};
+    allFood.forEach(function(x){if(loggedDates.indexOf(x.date)>=0)proMap[x.date]=(proMap[x.date]||0)+(x.pro||0);});
+    const avgPro=loggedDates.reduce(function(s,d){return s+(proMap[d]||0);},0)/loggedDates.length;
+    const alertEl=$('proAlert');
+    if(alertEl){
+      if(avgPro<tp*0.533){
+        alertEl.innerHTML='⚠️ โปรตีนเฉลี่ย <b>'+Math.round(avgPro)+'g</b> ('+loggedDates.length+' วันล่าสุด) — ต่ำกว่า 1.2g/kg เสี่ยงกล้ามสลาย!';
+        alertEl.style.display='block';
+      }else{alertEl.style.display='none';}
+    }
   }
 }
 
@@ -1132,7 +1205,7 @@ $('genReport').onclick=()=>{
   r+='สร้างเมื่อ: '+new Date().toLocaleString('th-TH')+'\n';
   r+='เป้าหมาย: %ไขมัน 18.9% -> 14% | คง/เพิ่มกล้าม | ลดไขมันช่องท้อง\n\n';
   r+='--- ผล InBody ---\n';
-  ib.forEach(x=>{r+=`${x.date} | นน. ${x.weight??'-'}kg | %ไขมัน ${x.bf??'-'} | SMM ${x.smm??'-'}kg | ช่องท้อง ${x.vis??'-'} | เอว ${x.waist??'-'} | score ${x.score??'-'} ${x.note?'('+x.note+')':''}\n`;});
+  ib.forEach(x=>{r+=x.date+' | นน. '+(x.weight!=null?x.weight:'-')+'kg | %ไขมัน '+(x.bf!=null?x.bf:'-')+' | SMM '+(x.smm!=null?x.smm:'-')+'kg | ช่องท้อง '+(x.vis!=null?x.vis:'-')+' | เอว '+(x.waist!=null?x.waist:'-')+' | score '+(x.score!=null?x.score:'-')+(x.note?' ('+x.note+')':'')+'\n';});
   r+='\n--- บันทึกอาหาร ---\n';
   let cd='';
   food.forEach(x=>{if(x.date!==cd){cd=x.date;r+=`\n[${x.date}]\n`;}r+=`  ${x.time} ${mealFromTime(x.time)}: ${x.items}${x.kcal?' ('+x.kcal+'kcal':''}${x.pro?(x.kcal?', ':' (')+x.pro+'g P':''}${(x.kcal||x.pro)?')':''}${x.note?'  >> '+x.note:''}\n`;});
@@ -1195,6 +1268,20 @@ function delCustomPreset(i){
 }
 
 // ---------- DAILY SUMMARY ----------
+function isoWeekKey(dateStr){
+  // returns "YYYY-Www" for grouping
+  const d=new Date(dateStr),day=d.getDay()||7;
+  const thu=new Date(d);thu.setDate(d.getDate()+4-day);
+  const y=thu.getFullYear(),jan1=new Date(y,0,1);
+  const wk=Math.ceil(((thu-jan1)/86400000+1)/7);
+  return y+'-W'+(wk<10?'0':'')+wk;
+}
+function weekRangeLabel(dateStr){
+  const d=new Date(dateStr),day=d.getDay()||7;
+  const mon=new Date(d);mon.setDate(d.getDate()-(day-1));
+  const sun=new Date(d);sun.setDate(d.getDate()+(7-day));
+  return fmtD(mon.toLocaleDateString('en-CA'))+' – '+fmtD(sun.toLocaleDateString('en-CA'));
+}
 function renderDaily(){
   const food=load(K.food,[]),train=load(K.train,[]),hab=load(K.habits,{});
   const byDate={};
@@ -1218,10 +1305,25 @@ function renderDaily(){
     <div class="card stat"><div class="num">${Math.round(totPro/nDays)}g</div><div class="lbl">โปรตีนเฉลี่ย/วัน</div></div>
   </div>`
     :`<div class="note small" style="margin-bottom:14px">📊 บันทึกอีก ${need} วันเพื่อดูค่าเฉลี่ย · มีข้อมูลแล้ว ${nDays} วัน</div>`;
-  html+=`<div style="overflow-x:auto"><table>
-  <tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>✅ นิสัย</th><th>สรุป</th></tr>`;
   const tp=getTargetPro();
-  dates.forEach(d=>{
+  // pre-compute weekly summaries for separator rows
+  const weekData={};
+  dates.forEach(function(d){
+    const wk=isoWeekKey(d),day=byDate[d];
+    if(!weekData[wk])weekData[wk]={kcal:0,pro:0,trainDays:0,n:0,label:weekRangeLabel(d)};
+    weekData[wk].kcal+=(day.kcal||0);weekData[wk].pro+=(day.pro||0);weekData[wk].n++;
+    if((day.trains||[]).length>0)weekData[wk].trainDays++;
+  });
+  html+='<div style="overflow-x:auto"><table><tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>✅ นิสัย</th><th>สรุป</th></tr>';
+  let curWeek='';
+  dates.forEach(function(d){
+    const wk=isoWeekKey(d);
+    if(wk!==curWeek){
+      curWeek=wk;
+      const ws=weekData[wk];
+      const avgK=ws.n?Math.round(ws.kcal/ws.n):0,avgP=ws.n?Math.round(ws.pro/ws.n):0;
+      html+='<tr style="background:#0c1a14;border-top:2px solid var(--line)"><td colspan="6" style="padding:5px 10px;font-size:11px;color:var(--muted)"><b style="color:var(--accent)">📅 '+ws.label+'</b> &nbsp;·&nbsp; เฉลี่ย '+avgK+' kcal · '+avgP+'g P · เทรน '+ws.trainDays+'/'+ws.n+' วัน</td></tr>';
+    }
     const day=byDate[d],kcal=day.kcal,pro=day.pro;
     const wasTrain=(day.trains||[]).length>0;
     const tk=wasTrain?TARGET_KCAL_TRAIN:TARGET_KCAL_REST;
@@ -1232,17 +1334,10 @@ function renderDaily(){
     const trainStr=(day.trains||[]).join(' · ')||'—';
     const habDay=hab[d]||{};
     const habDone=Object.values(habDay).filter(Boolean).length;
-    html+=`<tr${isToday?' style="background:var(--panel2)"':''}>
-      <td style="font-weight:700;white-space:nowrap">${fmtD(d)}${isToday?' <span class="pill ok" style="font-size:10px">วันนี้</span>':''}</td>
-      <td style="color:${kc};font-weight:700;white-space:nowrap">${kcal||'—'}</td>
-      <td style="color:${pc};font-weight:700;white-space:nowrap">${pro?pro+'g':'—'}</td>
-      <td class="small muted">${trainStr}</td>
-      <td class="small">${habDone?habDone+'/'+HAB.length:'—'}</td>
-      <td style="font-size:18px;text-align:center">${status}</td>
-    </tr>`;
+    html+='<tr'+(isToday?' style="background:var(--panel2)"':'')+'><td style="font-weight:700;white-space:nowrap">'+fmtD(d)+(isToday?' <span class="pill ok" style="font-size:10px">วันนี้</span>':'')+'</td><td style="color:'+kc+';font-weight:700;white-space:nowrap">'+(kcal||'—')+'</td><td style="color:'+pc+';font-weight:700;white-space:nowrap">'+(pro?pro+'g':'—')+'</td><td class="small muted">'+trainStr+'</td><td class="small">'+(habDone?habDone+'/'+HAB.length:'—')+'</td><td style="font-size:18px;text-align:center">'+status+'</td></tr>';
   });
   html+='</table></div>';
-  html+=`<div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า &amp; P ≥ ${tp}g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ ${Math.round(tp*0.8)}g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น &nbsp;·&nbsp; เกณฑ์ kcal ปรับตามวันเทรน/พักอัตโนมัติ</div>`;
+  html+='<div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า &amp; P ≥ '+tp+'g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ '+Math.round(tp*0.8)+'g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น &nbsp;·&nbsp; เกณฑ์ kcal ปรับตามวันเทรน/พักอัตโนมัติ</div>';
   $('dailyList').innerHTML=html;
 }
 
