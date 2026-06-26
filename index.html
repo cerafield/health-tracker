@@ -803,7 +803,7 @@ function renderFood(){
   } else {
     const dk=todayArr.reduce((s,x)=>s+(x.kcal||0),0),dp=todayArr.reduce((s,x)=>s+(x.pro||0),0);
     const _tk=getTargetKcal(),kc=dk>=_tk?'var(--accent)':dk>=_tk*0.7?'var(--warn)':'var(--blue)';
-    const pc=dp>=150?'var(--accent)':dp>=100?'var(--warn)':'var(--blue)';
+    const _tp=getTargetPro(),pc=dp>=_tp?'var(--accent)':dp>=_tp*0.8?'var(--warn)':dp>0?'var(--danger)':'var(--muted)';
     $('foodList').innerHTML=foodRows(todayArr)+
       `<div style="display:flex;gap:16px;padding:8px 2px 4px;border-top:1px solid var(--line);margin-top:2px">
         <span style="color:${kc};font-weight:700">🔥 ${dk} kcal</span>
@@ -981,7 +981,12 @@ function renderTrain(){
   $('trainHistory').innerHTML=ph;
 }
 
-const TARGET_PRO=165, TARGET_KCAL_TRAIN=2250, TARGET_KCAL_REST=1950;
+const TARGET_KCAL_TRAIN=2250, TARGET_KCAL_REST=1950;
+function getTargetPro(){
+  const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const last=arr.length?arr[arr.length-1]:null;
+  return last?.weight?Math.round(last.weight*2.25/5)*5:165;
+}
 function getDayType(){
   const ov=localStorage.getItem('ht_daytype_ov');
   if(ov)return ov;
@@ -1000,18 +1005,31 @@ function calcStreak(){
   return s;
 }
 function foodToday(){const t=todayStr();return load(K.food,[]).filter(x=>x.date===t);}
-function progBar(emoji,label,val,target,unit){
-  // bar scale = 0→115% of target, so overflow zone is visible
-  const maxVal=target*1.15;
+function progBar(emoji,label,val,target,unit,opts={}){
+  const {maxFactor=1.15,b1=60,b2=null,proMode=false}=opts;
+  const maxVal=target*maxFactor;
   const pct=Math.min(100,val/maxVal*100);
-  const tPct=100/1.15;       // target line at ~86.96% of bar
-  const z1=60/1.15;          // zone 1/2 boundary at ~52.17% of bar
-  const done=val>=target,over=val>maxVal;
-  const c=over?'var(--danger)':done?'var(--accent)':val>=target*0.6?'var(--warn)':'var(--blue)';
-  const grad=`linear-gradient(to right,
-    rgba(91,192,235,.18) 0% ${z1.toFixed(1)}%,
-    rgba(246,185,74,.14) ${z1.toFixed(1)}% ${tPct.toFixed(1)}%,
-    rgba(245,101,101,.15) ${tPct.toFixed(1)}% 100%)`;
+  const tPct=100/maxFactor;
+  const z1=b1/maxFactor;
+  const z2=b2?b2/maxFactor:null;
+  const c=proMode
+    ?(val>=target?'var(--blue)':b2&&val>=target*(b2/100)?'var(--accent)':val>=target*(b1/100)?'var(--warn)':'var(--danger)')
+    :(val>maxVal?'var(--danger)':val>=target?'var(--accent)':val>=target*(b1/100)?'var(--warn)':'var(--blue)');
+  let grad,labelHtml;
+  if(z2){
+    grad=`linear-gradient(to right,rgba(245,101,101,.18) 0% ${z1.toFixed(1)}%,rgba(246,185,74,.14) ${z1.toFixed(1)}% ${z2.toFixed(1)}%,rgba(54,211,153,.14) ${z2.toFixed(1)}% ${tPct.toFixed(1)}%,rgba(144,168,156,.12) ${tPct.toFixed(1)}% 100%)`;
+    const ctr=[z1/2,(z1+z2)/2,(z2+tPct)/2,(tPct+100)/2];
+    const lcl=['var(--danger)','var(--warn)','var(--accent)','var(--muted)'];
+    const lbl=['สลาย','คงกล้าม','สร้างกล้าม','เกินพอ'];
+    labelHtml=lbl.map((l,i)=>`<span style="position:absolute;left:${ctr[i].toFixed(1)}%;transform:translateX(-50%);color:${lcl[i]}">${l}</span>`).join('');
+  } else {
+    grad=`linear-gradient(to right,rgba(91,192,235,.18) 0% ${z1.toFixed(1)}%,rgba(246,185,74,.14) ${z1.toFixed(1)}% ${tPct.toFixed(1)}%,rgba(245,101,101,.15) ${tPct.toFixed(1)}% 100%)`;
+    labelHtml=`<span style="position:absolute;left:${(z1/2).toFixed(1)}%;transform:translateX(-50%)">น้อยเกิน</span>
+      <span style="position:absolute;left:${((z1+tPct)/2).toFixed(1)}%;transform:translateX(-50%)">กำลังดี</span>
+      <span style="position:absolute;left:${tPct.toFixed(1)}%;transform:translateX(-50%);color:var(--accent);font-weight:700">เป้า</span>
+      <span style="position:absolute;right:1%;color:var(--danger)">เกิน</span>`;
+  }
+  const done=val>=target,over=!proMode&&val>maxVal;
   return `<div style="margin-bottom:22px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <b>${emoji} ${label}</b>
@@ -1021,14 +1039,9 @@ function progBar(emoji,label,val,target,unit){
       <div style="height:14px;border-radius:999px;overflow:hidden;border:1px solid var(--line);background:${grad}">
         <div style="height:100%;width:${pct.toFixed(1)}%;background:${c};transition:width .4s"></div>
       </div>
-      <div style="position:absolute;top:0;left:${tPct.toFixed(1)}%;width:2px;height:14px;background:var(--accent);opacity:.55;transform:translateX(-50%)" title="เป้า ${target} ${unit}"></div>
+      <div style="position:absolute;top:0;left:${tPct.toFixed(1)}%;width:2px;height:14px;background:var(--accent);opacity:.55;transform:translateX(-50%)"></div>
     </div>
-    <div style="position:relative;font-size:10px;color:var(--muted);margin-top:3px;height:13px;user-select:none">
-      <span style="position:absolute;left:${(z1/2).toFixed(1)}%;transform:translateX(-50%)">น้อยเกิน</span>
-      <span style="position:absolute;left:${((z1+tPct)/2).toFixed(1)}%;transform:translateX(-50%)">กำลังดี</span>
-      <span style="position:absolute;left:${tPct.toFixed(1)}%;transform:translateX(-50%);color:var(--accent);font-weight:700">เป้า</span>
-      <span style="position:absolute;right:1%;color:var(--danger)">เกิน</span>
-    </div>
+    <div style="position:relative;font-size:10px;color:var(--muted);margin-top:3px;height:13px;user-select:none">${labelHtml}</div>
     <div class="small muted" style="margin-top:6px">${done?(over?'⚠️ เกินเป้าแล้ว':'🎉 ครบเป้าแล้ว!'):'ต้องกินอีก <b style="color:var(--text)">'+(target-val)+' '+unit+'</b>'}</div>
   </div>`;
 }
@@ -1050,7 +1063,8 @@ function updateTodayBars(){
       :`<button class=”btn ghost sm” onclick=”setDayType(null)” style=”font-size:11px;padding:3px 8px”>↩ อัตโนมัติ</button>`}
     ${streak>=2?`<span style=”font-size:12px;font-weight:700;color:var(--warn);margin-left:2px”>🔥 ${streak} วันติด</span>`:''}
   </div>`;
-  w.innerHTML=toggle+progBar('🍗','โปรตีน',pro,TARGET_PRO,'g')+progBar('🔥','พลังงาน',kcal,tkcal,'kcal')+
+  const tpro=getTargetPro();
+  w.innerHTML=toggle+progBar('🍗','โปรตีน',pro,tpro,'g',{b1:53.3,b2:80,proMode:true})+progBar('🔥','พลังงาน',kcal,tkcal,'kcal',{b1:70})+
     (items.length===0
       ?'<div class=”small” style=”color:var(--warn)”>ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกวัน” แตะปุ่มเพิ่มเร็ว ⚡</div>'
       :'<div class=”small muted”>จาก '+items.length+' รายการที่บันทึกวันนี้</div>')+
@@ -1063,10 +1077,10 @@ function updateMiniSummary(){
   const kcal=Math.round(items.reduce((s,x)=>s+(x.kcal||0),0));
   const el=$('miniTodaySummary');if(!el)return;
   if(!items.length){el.innerHTML='<span class="small muted">ยังไม่ได้บันทึกวันนี้</span>';$('planRefSnip').textContent='แตะเพื่อดู';return;}
-  const tkcal=getTargetKcal();
-  const pc=pro>=165?'var(--accent)':pro>=100?'var(--warn)':'var(--blue)';
+  const tkcal=getTargetKcal(),tpro=getTargetPro();
+  const pc=pro>=tpro?'var(--accent)':pro>=tpro*0.8?'var(--warn)':pro>=tpro*0.533?'var(--muted)':'var(--danger)';
   const kc=kcal>=tkcal?'var(--accent)':kcal>=tkcal*0.67?'var(--warn)':'var(--blue)';
-  el.innerHTML=`<span style="font-size:22px;font-weight:800;color:${pc}">${pro}<span class="small muted"> / 165g P</span></span><br>
+  el.innerHTML=`<span style="font-size:22px;font-weight:800;color:${pc}">${pro}<span class="small muted"> / ${tpro}g P</span></span><br>
     <span style="font-size:22px;font-weight:800;color:${kc}">${kcal}<span class="small muted"> / ${tkcal.toLocaleString()} kcal</span></span>`;
   const snip=$('planRefSnip');if(snip)snip.textContent=`P ${pro}g · ${kcal} kcal`;
 }
@@ -1204,9 +1218,9 @@ function renderDaily(){
   dates.forEach(d=>{
     const day=byDate[d],kcal=day.kcal,pro=day.pro;
     const kc=kcal>=2025?'var(--accent)':kcal>=1575?'var(--warn)':kcal>0?'var(--danger)':'var(--muted)';
-    const pc=pro>=150?'var(--accent)':pro>=100?'var(--warn)':pro>0?'var(--danger)':'var(--muted)';
+    const tp=getTargetPro(),pc=pro>=tp?'var(--accent)':pro>=tp*0.8?'var(--warn)':pro>0?'var(--danger)':'var(--muted)';
     const isToday=d===t;
-    const status=isToday&&!kcal?'📝':kcal>=2025&&pro>=150?'🟢':kcal>=1575&&pro>=100?'🟡':kcal>0||pro>0?'🔴':'📝';
+    const status=isToday&&!kcal?'📝':kcal>=2025&&pro>=tp?'🟢':kcal>=1575&&pro>=tp*0.8?'🟡':kcal>0||pro>0?'🔴':'📝';
     const trainStr=(day.trains||[]).join(' · ')||'—';
     const habDay=hab[d]||{};
     const habDone=Object.values(habDay).filter(Boolean).length;
