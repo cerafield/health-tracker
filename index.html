@@ -1001,18 +1001,35 @@ function calcStreak(){
 }
 function foodToday(){const t=todayStr();return load(K.food,[]).filter(x=>x.date===t);}
 function progBar(emoji,label,val,target,unit){
-  const pct=Math.min(100,Math.round(val/target*100));
-  const done=val>=target, over=val>target*1.15;
+  // bar scale = 0→115% of target, so overflow zone is visible
+  const maxVal=target*1.15;
+  const pct=Math.min(100,val/maxVal*100);
+  const tPct=100/1.15;       // target line at ~86.96% of bar
+  const z1=60/1.15;          // zone 1/2 boundary at ~52.17% of bar
+  const done=val>=target,over=val>maxVal;
   const c=over?'var(--danger)':done?'var(--accent)':val>=target*0.6?'var(--warn)':'var(--blue)';
-  return `<div style="margin-bottom:16px">
+  const grad=`linear-gradient(to right,
+    rgba(91,192,235,.18) 0% ${z1.toFixed(1)}%,
+    rgba(246,185,74,.14) ${z1.toFixed(1)}% ${tPct.toFixed(1)}%,
+    rgba(245,101,101,.15) ${tPct.toFixed(1)}% 100%)`;
+  return `<div style="margin-bottom:22px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <b>${emoji} ${label}</b>
       <span style="font-size:20px;font-weight:800;color:${c}">${val}<span class="small muted"> / ${target} ${unit}</span></span>
     </div>
-    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:999px;height:14px;overflow:hidden;margin:7px 0 5px">
-      <div style="height:100%;width:${pct}%;background:${c};transition:width .4s"></div>
+    <div style="position:relative;margin-top:7px">
+      <div style="height:14px;border-radius:999px;overflow:hidden;border:1px solid var(--line);background:${grad}">
+        <div style="height:100%;width:${pct.toFixed(1)}%;background:${c};transition:width .4s"></div>
+      </div>
+      <div style="position:absolute;top:0;left:${tPct.toFixed(1)}%;width:2px;height:14px;background:var(--accent);opacity:.55;transform:translateX(-50%)" title="เป้า ${target} ${unit}"></div>
     </div>
-    <div class="small muted">${done?(over?'⚠️ เกินเป้าแล้ว':'🎉 ครบเป้าแล้ว!'):'ต้องกินอีก <b style="color:var(--text)">'+(target-val)+' '+unit+'</b>'}</div>
+    <div style="position:relative;font-size:10px;color:var(--muted);margin-top:3px;height:13px;user-select:none">
+      <span style="position:absolute;left:0">📉 น้อยเกิน</span>
+      <span style="position:absolute;left:${z1.toFixed(1)}%;transform:translateX(-50%)">✅ กำลังดี</span>
+      <span style="position:absolute;left:${tPct.toFixed(1)}%;transform:translateX(-50%);color:var(--accent);font-weight:700">เป้า</span>
+      <span style="position:absolute;right:0;color:var(--danger)">⚠️ เกิน</span>
+    </div>
+    <div class="small muted" style="margin-top:6px">${done?(over?'⚠️ เกินเป้าแล้ว':'🎉 ครบเป้าแล้ว!'):'ต้องกินอีก <b style="color:var(--text)">'+(target-val)+' '+unit+'</b>'}</div>
   </div>`;
 }
 function updateTodayBars(){
