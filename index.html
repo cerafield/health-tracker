@@ -788,7 +788,7 @@ function foodRows(rows){
       <td style="white-space:nowrap;color:var(--accent);font-weight:700;font-size:13px">${x.time}</td>
       <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
       <td style="word-break:break-word;max-width:180px">${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':''}${x.kcal?x.kcal+'<br>kcal':''}${x.pro?' '+x.pro+'g P':''}</td>
+      <td style="white-space:nowrap;font-size:12px;text-align:right">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':[(x.kcal?'<b>'+x.kcal+'</b><span style="color:var(--muted)"> kcal</span>':''),(x.pro?'<b style="color:var(--blue)">'+x.pro+'g</b><span style="color:var(--muted)"> P</span>':'')].filter(Boolean).join('<br>')}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
     </tr>`;
   });
