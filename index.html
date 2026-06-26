@@ -406,8 +406,9 @@
     </div>
 
     <div class="card" style="margin-top:14px">
-      <h2>📜 ประวัติการกิน <span class="small muted" id="f_summary"></span></h2>
+      <h2>📋 วันนี้ <span class="small muted" id="f_summary"></span></h2>
       <div id="foodList"></div>
+      <div id="foodHistory"></div>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -745,32 +746,52 @@ function renderPresets(){
   $('f_presets').innerHTML=PRESETS.map((p,i)=>`<button class="chip chip-food" data-p="${i}">${p.label}</button>`).join('');
   document.querySelectorAll('#f_presets button').forEach(b=>b.onclick=()=>quickAdd(PRESETS[+b.dataset.p]));
 }
+function foodRows(rows){
+  let h='<div style="overflow-x:auto"><table>';
+  rows.forEach(x=>{
+    const ml=mealFromTime(x.time),mc=/เทรน/.test(ml)?'tr':/ดึก/.test(ml)?'no':'rest';
+    h+=`<tr>
+      <td style="white-space:nowrap;color:var(--accent);font-weight:700;font-size:13px">${x.time}</td>
+      <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
+      <td style="word-break:break-word;max-width:180px">${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':''}${x.kcal?x.kcal+'<br>kcal':''}${x.pro?' '+x.pro+'g P':''}</td>
+      <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
+    </tr>`;
+  });
+  return h+'</table></div>';
+}
 function renderFood(){
-  const arr=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  $('f_summary').textContent=arr.length?`(${arr.length} รายการ)`:'';
+  const all=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   if(typeof updateTodayBars==='function')updateTodayBars();
   if(typeof updateMiniSummary==='function')updateMiniSummary();
-  if(!arr.length){$('foodList').innerHTML='<p class="muted small">ยังไม่มีบันทึก — เพิ่มมื้อแรกด้านบนได้เลย</p>';return;}
-  const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
-  let html='';
+  const today=todayStr();
+  const todayArr=all.filter(x=>x.date===today);
+  const pastArr=all.filter(x=>x.date!==today);
+  const pastDays=Object.keys(pastArr.reduce((o,x)=>(o[x.date]=1,o),{})).length;
+  $('f_summary').textContent=todayArr.length?`(${todayArr.length} มื้อ)`:'';
+
+  // ── TODAY ──
+  if(!todayArr.length){
+    $('foodList').innerHTML='<p class="muted small" style="padding:8px 0">ยังไม่มีบันทึกวันนี้ — เพิ่มมื้อด้านบนได้เลย</p>';
+  } else {
+    const dk=todayArr.reduce((s,x)=>s+(x.kcal||0),0),dp=todayArr.reduce((s,x)=>s+(x.pro||0),0);
+    $('foodList').innerHTML=foodRows(todayArr);
+  }
+
+  // ── HISTORY (past days collapsed) ──
+  if(!pastDays){$('foodHistory').innerHTML='';return;}
+  const byDate={};pastArr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
+  let ph=`<details style="margin-top:10px">
+    <summary style="cursor:pointer;color:var(--muted);font-size:13px;padding:6px 0;list-style:none;display:flex;align-items:center;gap:6px">
+      <span style="font-size:10px">▶</span> ดูย้อนหลัง <b style="color:var(--text)">${pastDays} วัน</b> · ${pastArr.length} รายการ
+    </summary><div style="margin-top:10px">`;
   Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(d=>{
-    const rows=byDate[d];const dk=rows.reduce((s,x)=>s+(x.kcal||0),0),dp=rows.reduce((s,x)=>s+(x.pro||0),0);
-    html+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px">${fmtD(d)}
-      <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g P':''}</span></h3><div style="overflow-x:auto"><table>`;
-    rows.forEach(x=>{
-      const ml=mealFromTime(x.time);
-      const mc=/เทรน/.test(ml)?'tr':/ดึก/.test(ml)?'no':'rest';
-      html+=`<tr>
-        <td style="white-space:nowrap;color:var(--accent);font-weight:700;font-size:13px">${x.time}</td>
-        <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
-        <td style="word-break:break-word;max-width:180px">${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-        <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':''}${x.kcal?x.kcal+'<br>kcal':''}${x.pro?' '+x.pro+'g P':''}</td>
-        <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
-      </tr>`;
-    });
-    html+='</table></div>';
+    const rows=byDate[d],dk=rows.reduce((s,x)=>s+(x.kcal||0),0),dp=rows.reduce((s,x)=>s+(x.pro||0),0);
+    ph+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px;font-size:14px">${fmtD(d)}
+      <span class="small muted">· ${dk?dk+' kcal':''} ${dp?'· '+dp+'g P':''}</span></h3>${foodRows(rows)}`;
   });
-  $('foodList').innerHTML=html;
+  ph+='</div></details>';
+  $('foodHistory').innerHTML=ph;
 }
 
 // ---------- INBODY ----------
