@@ -1024,10 +1024,10 @@ function progBar(emoji,label,val,target,unit){
       <div style="position:absolute;top:0;left:${tPct.toFixed(1)}%;width:2px;height:14px;background:var(--accent);opacity:.55;transform:translateX(-50%)" title="เป้า ${target} ${unit}"></div>
     </div>
     <div style="position:relative;font-size:10px;color:var(--muted);margin-top:3px;height:13px;user-select:none">
-      <span style="position:absolute;left:0">📉 น้อยเกิน</span>
-      <span style="position:absolute;left:${z1.toFixed(1)}%;transform:translateX(-50%)">✅ กำลังดี</span>
+      <span style="position:absolute;left:${(z1/2).toFixed(1)}%;transform:translateX(-50%)">น้อยเกิน</span>
+      <span style="position:absolute;left:${((z1+tPct)/2).toFixed(1)}%;transform:translateX(-50%)">กำลังดี</span>
       <span style="position:absolute;left:${tPct.toFixed(1)}%;transform:translateX(-50%);color:var(--accent);font-weight:700">เป้า</span>
-      <span style="position:absolute;right:0;color:var(--danger)">⚠️ เกิน</span>
+      <span style="position:absolute;right:1%;color:var(--danger)">เกิน</span>
     </div>
     <div class="small muted" style="margin-top:6px">${done?(over?'⚠️ เกินเป้าแล้ว':'🎉 ครบเป้าแล้ว!'):'ต้องกินอีก <b style="color:var(--text)">'+(target-val)+' '+unit+'</b>'}</div>
   </div>`;
