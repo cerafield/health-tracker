@@ -430,8 +430,9 @@
     </div>
 
     <div class="card" style="margin-top:14px">
-      <h2>📜 ประวัติเทรน</h2>
+      <h2>📋 เทรนวันนี้ <span class="small muted" id="tr_summary"></span></h2>
       <div id="trainList"></div>
+      <div id="trainHistory"></div>
     </div>
   </section>
 
@@ -925,25 +926,46 @@ function renderTrainPresets(){
   $('tr_presets').innerHTML=TRAIN_PRESETS.map((p,i)=>`<button class="chip chip-food" data-tp="${i}">${p.label}</button>`).join('');
   document.querySelectorAll('#tr_presets button').forEach(b=>b.onclick=()=>quickTrain(TRAIN_PRESETS[+b.dataset.tp]));
 }
+function trainRows(rows){
+  let h='<table>';
+  rows.forEach(x=>{
+    h+=`<tr>
+      <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
+      <td><b>${x.act}</b>${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
+      <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editTrain(${x.id})">แก้</button> <button class="btn del sm" onclick="delTrain(${x.id})">ลบ</button></td>
+    </tr>`;
+  });
+  return h+'</table>';
+}
 function renderTrain(){
-  const arr=load(K.train,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const all=load(K.train,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   updateTodayTrain();
-  if(!arr.length){$('trainList').innerHTML='<p class="muted small">ยังไม่มีบันทึกเทรน — แตะปุ่มด้านบนเพิ่มเลย</p>';return;}
-  const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
-  let html='';
+  const today=todayStr();
+  const todayArr=all.filter(x=>x.date===today);
+  const pastArr=all.filter(x=>x.date!==today);
+  const pastDays=Object.keys(pastArr.reduce((o,x)=>(o[x.date]=1,o),{})).length;
+  $('tr_summary').textContent=todayArr.length?`(${todayArr.length} เซสชัน)`:'';
+
+  // ── TODAY ──
+  if(!todayArr.length){
+    $('trainList').innerHTML='<p class="muted small" style="padding:8px 0">ยังไม่มีบันทึกเทรนวันนี้ — แตะปุ่มด้านบนเพิ่มเลย</p>';
+  } else {
+    $('trainList').innerHTML=trainRows(todayArr);
+  }
+
+  // ── HISTORY ──
+  if(!pastDays){$('trainHistory').innerHTML='';return;}
+  const byDate={};pastArr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
+  let ph=`<details style="margin-top:10px">
+    <summary style="cursor:pointer;color:var(--muted);font-size:13px;padding:6px 0;list-style:none;display:flex;align-items:center;gap:6px">
+      <span style="font-size:10px">▶</span> ดูย้อนหลัง <b style="color:var(--text)">${pastDays} วัน</b> · ${pastArr.length} เซสชัน
+    </summary><div style="margin-top:10px">`;
   Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).forEach(d=>{
     const rows=byDate[d];
-    html+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px">${fmtD(d)}</h3><table>`;
-    rows.forEach(x=>{
-      html+=`<tr>
-        <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
-        <td><b>${x.act}</b>${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-        <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editTrain(${x.id})">แก้</button> <button class="btn del sm" onclick="delTrain(${x.id})">ลบ</button></td>
-      </tr>`;
-    });
-    html+='</table>';
+    ph+=`<h3 style="border-bottom:1px solid var(--line);padding-bottom:4px;font-size:14px">${fmtD(d)}</h3>${trainRows(rows)}`;
   });
-  $('trainList').innerHTML=html;
+  ph+='</div></details>';
+  $('trainHistory').innerHTML=ph;
 }
 
 const TARGET_PRO=165, TARGET_KCAL=2250;
