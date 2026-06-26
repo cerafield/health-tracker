@@ -450,7 +450,6 @@
       <p class="small muted" style="margin:0 0 12px">ดู in-take แต่ละวันย้อนหลัง — kcal · โปรตีน · เทรน · นิสัย</p>
       <div style="overflow-x:auto" id="dailyList"><p class="muted small">กำลังโหลด...</p></div>
     </div>
-    <div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า (2,025+) &amp; P ≥ 150g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ 100g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น</div>
   </section>
 
   <!-- ===================== INBODY ===================== -->
@@ -940,7 +939,7 @@ function renderTrainPresets(){
   document.querySelectorAll('#tr_presets button').forEach(b=>b.onclick=()=>quickTrain(TRAIN_PRESETS[+b.dataset.tp]));
 }
 function trainRows(rows){
-  let h='<table>';
+  let h='<div style="overflow-x:auto"><table>';
   rows.forEach(x=>{
     h+=`<tr>
       <td style="white-space:nowrap;color:var(--accent);font-weight:700">${x.time}</td>
@@ -948,7 +947,7 @@ function trainRows(rows){
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editTrain(${x.id})">แก้</button> <button class="btn del sm" onclick="delTrain(${x.id})">ลบ</button></td>
     </tr>`;
   });
-  return h+'</table>';
+  return h+'</table></div>';
 }
 function renderTrain(){
   const all=load(K.train,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
@@ -1000,7 +999,10 @@ function setDayType(t){
 function getTargetKcal(){return getDayType()==='rest'?TARGET_KCAL_REST:TARGET_KCAL_TRAIN;}
 function calcStreak(){
   const days=new Set(load(K.food,[]).map(x=>x.date));
-  const d=new Date();let s=0;
+  const d=new Date();
+  // if today not logged yet, start from yesterday so streak doesn't reset at midnight
+  if(!days.has(d.toLocaleDateString('en-CA')))d.setDate(d.getDate()-1);
+  let s=0;
   while(days.has(d.toLocaleDateString('en-CA'))){s++;d.setDate(d.getDate()-1);}
   return s;
 }
@@ -1064,7 +1066,10 @@ function updateTodayBars(){
     ${streak>=2?`<span style=”font-size:12px;font-weight:700;color:var(--warn);margin-left:2px”>🔥 ${streak} วันติด</span>`:''}
   </div>`;
   const tpro=getTargetPro();
-  w.innerHTML=toggle+progBar('🍗','โปรตีน',pro,tpro,'g',{b1:53.3,b2:80,proMode:true})+progBar('🔥','พลังงาน',kcal,tkcal,'kcal',{b1:70})+
+  const _ibArr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const _wt=_ibArr.length?_ibArr[_ibArr.length-1]?.weight:null;
+  const gkg=_wt&&pro>0?` · ${(pro/_wt).toFixed(2)} g/kg`:'';
+  w.innerHTML=toggle+progBar('🍗','โปรตีน'+gkg,pro,tpro,'g',{b1:53.3,b2:80,proMode:true})+progBar('🔥','พลังงาน',kcal,tkcal,'kcal',{b1:70})+
     (items.length===0
       ?'<div class=”small” style=”color:var(--warn)”>ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ “บันทึกวัน” แตะปุ่มเพิ่มเร็ว ⚡</div>'
       :'<div class=”small muted”>จาก '+items.length+' รายการที่บันทึกวันนี้</div>')+
@@ -1215,12 +1220,15 @@ function renderDaily(){
     :`<div class="note small" style="margin-bottom:14px">📊 บันทึกอีก ${need} วันเพื่อดูค่าเฉลี่ย · มีข้อมูลแล้ว ${nDays} วัน</div>`;
   html+=`<div style="overflow-x:auto"><table>
   <tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>✅ นิสัย</th><th>สรุป</th></tr>`;
+  const tp=getTargetPro();
   dates.forEach(d=>{
     const day=byDate[d],kcal=day.kcal,pro=day.pro;
-    const kc=kcal>=2025?'var(--accent)':kcal>=1575?'var(--warn)':kcal>0?'var(--danger)':'var(--muted)';
-    const tp=getTargetPro(),pc=pro>=tp?'var(--accent)':pro>=tp*0.8?'var(--warn)':pro>0?'var(--danger)':'var(--muted)';
+    const wasTrain=(day.trains||[]).length>0;
+    const tk=wasTrain?TARGET_KCAL_TRAIN:TARGET_KCAL_REST;
+    const kc=kcal>=tk*0.9?'var(--accent)':kcal>=tk*0.7?'var(--warn)':kcal>0?'var(--danger)':'var(--muted)';
+    const pc=pro>=tp?'var(--accent)':pro>=tp*0.8?'var(--warn)':pro>0?'var(--danger)':'var(--muted)';
     const isToday=d===t;
-    const status=isToday&&!kcal?'📝':kcal>=2025&&pro>=tp?'🟢':kcal>=1575&&pro>=tp*0.8?'🟡':kcal>0||pro>0?'🔴':'📝';
+    const status=isToday&&!kcal?'📝':kcal>=tk*0.9&&pro>=tp?'🟢':kcal>=tk*0.7&&pro>=tp*0.8?'🟡':kcal>0||pro>0?'🔴':'📝';
     const trainStr=(day.trains||[]).join(' · ')||'—';
     const habDay=hab[d]||{};
     const habDone=Object.values(habDay).filter(Boolean).length;
@@ -1234,6 +1242,7 @@ function renderDaily(){
     </tr>`;
   });
   html+='</table></div>';
+  html+=`<div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า &amp; P ≥ ${tp}g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ ${Math.round(tp*0.8)}g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น &nbsp;·&nbsp; เกณฑ์ kcal ปรับตามวันเทรน/พักอัตโนมัติ</div>`;
   $('dailyList').innerHTML=html;
 }
 
