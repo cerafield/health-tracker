@@ -621,7 +621,7 @@ $('f_add').onclick=()=>{
   const arr=load(K.food,[]);
   const rec={date:$('f_date').value,time:$('f_time').value,meal:mealFromTime($('f_time').value),
     items,kcal:+$('f_kcal').value||null,pro:+$('f_pro').value||null,note:$('f_note').value.trim()};
-  if(editId){const i=arr.findIndex(x=>x.id===editId);if(i>=0)arr[i]={...arr[i],...rec};}
+  if(editId){const i=arr.findIndex(x=>x.id===editId);if(i>=0)arr[i]=Object.assign({},arr[i],rec);}
   else arr.push({id:Date.now(),...rec});
   save(K.food,arr);resetFoodForm();renderFood();
   setTimeout(()=>{const el=$('foodList');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},80);
@@ -959,7 +959,7 @@ $('tr_add').onclick=()=>{
   const act=$('tr_act').value.trim();if(!act){alert('ใส่กิจกรรมก่อนนะครับ');return;}
   let arr=load(K.train,[]);
   if(editTrainId){
-    arr=arr.map(x=>x.id===editTrainId?{...x,date:$('tr_date').value,time:$('tr_time').value,act,note:$('tr_note').value.trim()}:x);
+    arr=arr.map(x=>x.id===editTrainId?Object.assign({},x,{date:$('tr_date').value,time:$('tr_time').value,act:act,note:$('tr_note').value.trim()}):x);
     save(K.train,arr);resetTrainForm();renderTrain();toastTrain(act+' แก้ไขแล้ว');
   }else{
     arr.push({id:Date.now(),date:$('tr_date').value,time:$('tr_time').value,act,note:$('tr_note').value.trim()});
