@@ -577,8 +577,21 @@ function renderHabits(){
 // ---------- FOOD ----------
 let editId=null,nutLocked=false;
 function updateMealHint(t){const h=$('mealHint');if(h)h.textContent=t?'📍 '+mealFromTime(t):'';}
-function resetFoodForm(){$('f_date').value=todayStr();const n=new Date();const hm=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('f_time').value=hm;$('f_items').value='';$('f_kcal').value='';$('f_pro').value='';$('f_note').value='';editId=null;nutLocked=false;$('f_add').textContent='+ เพิ่มบันทึก';if($('calcHint'))$('calcHint').textContent='';updateMealHint(hm);}
-$('f_now').onclick=()=>{const n=new Date();$('f_date').value=todayStr();$('f_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
+function resetFoodForm(){
+  const hm=nowHM();
+  $('f_date').value=todayStr();
+  $('f_time').value=hm;
+  $('f_items').value='';
+  $('f_kcal').value='';
+  $('f_pro').value='';
+  $('f_note').value='';
+  editId=null;
+  nutLocked=false;
+  $('f_add').textContent='+ เพิ่มบันทึก';
+  if($('calcHint'))$('calcHint').textContent='';
+  updateMealHint(hm);
+}
+$('f_now').onclick=()=>{const hm=nowHM();$('f_date').value=todayStr();$('f_time').value=hm;updateMealHint(hm);};
 $('f_time').addEventListener('change',()=>updateMealHint($('f_time').value));
 $('f_items').addEventListener('input',autoNutri);
 ['f_pro','f_kcal'].forEach(id=>$(id).addEventListener('input',()=>{nutLocked=true;}));
@@ -762,8 +775,8 @@ function foodRows(rows){
 }
 function renderFood(){
   const all=load(K.food,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  if(typeof updateTodayBars==='function')updateTodayBars();
-  if(typeof updateMiniSummary==='function')updateMiniSummary();
+  updateTodayBars();
+  updateMiniSummary();
   const today=todayStr();
   const todayArr=all.filter(x=>x.date===today);
   const pastArr=all.filter(x=>x.date!==today);
@@ -775,7 +788,13 @@ function renderFood(){
     $('foodList').innerHTML='<p class="muted small" style="padding:8px 0">ยังไม่มีบันทึกวันนี้ — เพิ่มมื้อด้านบนได้เลย</p>';
   } else {
     const dk=todayArr.reduce((s,x)=>s+(x.kcal||0),0),dp=todayArr.reduce((s,x)=>s+(x.pro||0),0);
-    $('foodList').innerHTML=foodRows(todayArr);
+    const kc=dk>=2025?'var(--accent)':dk>=1575?'var(--warn)':'var(--blue)';
+    const pc=dp>=150?'var(--accent)':dp>=100?'var(--warn)':'var(--blue)';
+    $('foodList').innerHTML=foodRows(todayArr)+
+      `<div style="display:flex;gap:16px;padding:8px 2px 4px;border-top:1px solid var(--line);margin-top:2px">
+        <span style="color:${kc};font-weight:700">🔥 ${dk} kcal</span>
+        <span style="color:${pc};font-weight:700">🍗 ${dp}g P</span>
+      </div>`;
   }
 
   // ── HISTORY (past days collapsed) ──
@@ -857,8 +876,25 @@ const TRAIN_PRESETS=[
 ];
 let toastTrT,editTrainId=null;
 function toastTrain(msg){const t=$('tr_toast');t.textContent='✅ '+msg;t.style.display='block';clearTimeout(toastTrT);toastTrT=setTimeout(()=>t.style.display='none',2200);}
-function resetTrainForm(){$('tr_date').value=todayStr();const n=new Date();$('tr_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');$('tr_act').value='';$('tr_note').value='';editTrainId=null;$('tr_add').textContent='+ บันทึกเทรน';}
-function editTrain(id){const x=load(K.train,[]).find(e=>e.id===id);if(!x)return;$('tr_date').value=x.date;$('tr_time').value=x.time;$('tr_act').value=x.act;$('tr_note').value=x.note||'';editTrainId=id;$('tr_add').textContent='💾 บันทึกการแก้ไข';$('tr_act').scrollIntoView({block:'center'});$('tr_act').focus();}
+function resetTrainForm(){
+  $('tr_date').value=todayStr();
+  $('tr_time').value=nowHM();
+  $('tr_act').value='';
+  $('tr_note').value='';
+  editTrainId=null;
+  $('tr_add').textContent='+ บันทึกเทรน';
+}
+function editTrain(id){
+  const x=load(K.train,[]).find(e=>e.id===id);if(!x)return;
+  $('tr_date').value=x.date;
+  $('tr_time').value=x.time;
+  $('tr_act').value=x.act;
+  $('tr_note').value=x.note||'';
+  editTrainId=id;
+  $('tr_add').textContent='💾 บันทึกการแก้ไข';
+  $('tr_act').scrollIntoView({block:'center'});
+  $('tr_act').focus();
+}
 function quickTrain(p){
   if(p.prefill){
     $('tr_date').value=todayStr();$('tr_time').value=nowHM();
@@ -883,7 +919,7 @@ $('tr_add').onclick=()=>{
     save(K.train,arr);resetTrainForm();renderTrain();toastTrain(act+' บันทึกแล้ว');
   }
 };
-$('tr_now').onclick=()=>{const n=new Date();$('tr_date').value=todayStr();$('tr_time').value=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');};
+$('tr_now').onclick=()=>{$('tr_date').value=todayStr();$('tr_time').value=nowHM();};
 function delTrain(id){if(!confirm('ลบบันทึกเทรนนี้?'))return;save(K.train,load(K.train,[]).filter(x=>x.id!==id));renderTrain();}
 function renderTrainPresets(){
   $('tr_presets').innerHTML=TRAIN_PRESETS.map((p,i)=>`<button class="chip chip-food" data-tp="${i}">${p.label}</button>`).join('');
@@ -891,7 +927,7 @@ function renderTrainPresets(){
 }
 function renderTrain(){
   const arr=load(K.train,[]).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  if(typeof updateTodayTrain==='function')updateTodayTrain();
+  updateTodayTrain();
   if(!arr.length){$('trainList').innerHTML='<p class="muted small">ยังไม่มีบันทึกเทรน — แตะปุ่มด้านบนเพิ่มเลย</p>';return;}
   const byDate={};arr.forEach(x=>{(byDate[x.date]=byDate[x.date]||[]).push(x);});
   let html='';
