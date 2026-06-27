@@ -670,9 +670,21 @@ if(!load(K.seed,false)){
     {date:'2026-06-13',weight:73.2,bf:17.7,smm:34.1,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
     {date:'2026-06-14',weight:73.6,bf:18.3,smm:34.0,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
     {date:'2026-06-16',weight:72.3,bf:20.0,smm:32.7,vis:null,waist:null,score:null,note:'จากประวัติ InBody'},
-    {date:'2026-06-19',weight:73.1,bf:18.9,smm:33.6,vis:5,waist:83.1,score:80,note:'ผลล่าสุด (ใบที่ส่งมา)'}
+    {date:'2026-06-19',weight:73.1,bf:18.9,smm:33.6,vis:5,waist:83.1,score:80,note:'InBody 19 มิ.ย.'},
+    {date:'2026-06-26',weight:71.7,bf:19.2,smm:32.8,vis:5,waist:81.8,score:78,note:'InBody 26 มิ.ย.'},
+    {date:'2026-06-27',weight:72.7,bf:17.9,smm:33.9,vis:5,waist:85.7,score:81,note:'InBody 27 มิ.ย.'}
   ];
   save(K.inbody,seed); save(K.food,[]); save(K.habits,{}); save(K.seed,true);
+}
+// ---------- migration v2: add June 26 & 27 InBody entries ----------
+if(!load('ht_mig_v2',false)){
+  const _ib=load(K.inbody,[]);
+  const _dates=new Set(_ib.map(x=>x.date));
+  [{date:'2026-06-26',weight:71.7,bf:19.2,smm:32.8,vis:5,waist:81.8,score:78,note:'InBody 26 มิ.ย.'},
+   {date:'2026-06-27',weight:72.7,bf:17.9,smm:33.9,vis:5,waist:85.7,score:81,note:'InBody 27 มิ.ย.'}
+  ].forEach(e=>{if(!_dates.has(e.date))_ib.push(e);});
+  save(K.inbody,_ib);
+  save('ht_mig_v2',true);
 }
 
 // ---------- tabs ----------
