@@ -1208,8 +1208,8 @@ function updateTodayBars(){
   const gkg=_wt&&pro>0?` · ${(pro/_wt).toFixed(2)} g/kg`:'';
   w.innerHTML=toggle+progBar('🍗','โปรตีน'+gkg,pro,tpro,'g',{b1:53.3,b2:80,proMode:true})+progBar('🔥','พลังงาน',kcal,tkcal,'kcal',{b1:70})+
     (items.length===0
-      ?'<div class="small" style="color:var(--warn)">ยังไม่ได้บันทึกอาหารวันนี้ — ไปแท็บ "บันทึกวัน" แตะปุ่มเพิ่มเร็ว ⚡</div>'
-      :'<div class="small muted">จาก '+items.length+' รายการที่บันทึกวันนี้</div>')+
+      ?'<div class="small" style="color:var(--warn);margin-top:4px">ยังไม่ได้บันทึกอาหารวันนี้ — <button class="btn ghost sm" onclick="document.querySelector(\'nav.tabs button[data-tab=food]\').click()" style="font-size:11px;padding:2px 8px;vertical-align:middle">⚡ บันทึกเลย →</button></div>'
+      :'<div class="small muted" style="margin-top:4px">จาก '+items.length+' รายการที่บันทึกวันนี้</div>')+
     (trainSummary?'<div class="small" style="color:var(--accent);margin-top:6px">'+trainSummary+'</div>':'');
   renderWeekConsistency();
 }
