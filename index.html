@@ -157,7 +157,7 @@
       <div class="card stat"><div class="num" id="d_vis">—</div><div class="lbl">ไขมันช่องท้อง (1–9)</div><div class="delta" id="d_vis_d"></div></div>
     </div>
 
-    <div class="grid g2">
+    <div class="grid g2 stack">
       <div class="card">
         <h2>🎯 เป้าหมาย &amp; ความคืบหน้า</h2>
         <table>
@@ -1229,7 +1229,7 @@ $('upBackup').onchange=e=>{
     alert('โหลด Backup สำเร็จ');renderAll();}catch(err){alert('ไฟล์ไม่ถูกต้อง');}};
   rd.readAsText(f);
 };
-$('clearAll').onclick=()=>{if(!confirm('ล้างข้อมูลทั้งหมด (อาหาร+InBody+นิสัย)? ลบแล้วกู้ไม่ได้'))return;
+$('clearAll').onclick=()=>{if(!confirm('ล้างข้อมูลทั้งหมด (อาหาร+InBody+เทรน)? ลบแล้วกู้ไม่ได้'))return;
   if(!confirm('แน่ใจนะครับ? แนะนำกด Backup ก่อน'))return;
   [K.food,K.inbody,K.habits,K.train,K.custom,K.seed].forEach(k=>localStorage.removeItem(k));location.reload();};
 
@@ -1294,7 +1294,8 @@ function renderDaily(){
   const t=todayStr();if(!byDate[t])byDate[t]={kcal:0,pro:0,n:0};
   const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
   if(!dates.length){$('dailyList').innerHTML='<p class="muted small">ยังไม่มีข้อมูล</p>';return;}
-  const totKcal=food.reduce((s,x)=>s+(x.kcal||0),0),totPro=food.reduce((s,x)=>s+(x.pro||0),0),nDays=dates.length;
+  const totKcal=food.reduce((s,x)=>s+(x.kcal||0),0),totPro=food.reduce((s,x)=>s+(x.pro||0),0);
+  const nDays=dates.filter(function(d){return byDate[d].n>0;}).length||1;
   const need=Math.max(0,3-nDays);
   let html=nDays>=3
     ?`<div class="grid g3" style="margin-bottom:14px">
