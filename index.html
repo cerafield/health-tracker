@@ -563,6 +563,7 @@ function mealFromTime(t){
 const $=id=>document.getElementById(id);
 const load=(k,def)=>{try{const v=JSON.parse(localStorage.getItem(k));return v!=null?v:def}catch(e){return def}};
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));localStorage.setItem('ht_ts',Date.now());fbPush();}
+function _n(s){s=String(s==null?'':s).trim();return s===''?null:+s;}
 const todayStr=()=>new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 const fmtD=s=>{if(!s)return'';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2)};
 
@@ -620,9 +621,9 @@ $('f_add').onclick=()=>{
   const items=$('f_items').value.trim();if(!items){alert('ใส่ว่ากินอะไรก่อนนะครับ');return;}
   const arr=load(K.food,[]);
   const rec={date:$('f_date').value,time:$('f_time').value,meal:mealFromTime($('f_time').value),
-    items,kcal:+$('f_kcal').value||null,pro:+$('f_pro').value||null,note:$('f_note').value.trim()};
+    items,kcal:_n($('f_kcal').value),pro:_n($('f_pro').value),note:$('f_note').value.trim()};
   if(editId){const i=arr.findIndex(x=>x.id===editId);if(i>=0)arr[i]=Object.assign({},arr[i],rec);}
-  else arr.push({id:Date.now(),...rec});
+  else arr.push(Object.assign({id:Date.now()},rec));
   save(K.food,arr);resetFoodForm();renderFood();
   setTimeout(()=>{const el=$('foodList');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},80);
 };
@@ -630,7 +631,7 @@ function delFood(id){if(!confirm('ลบบันทึกนี้?'))return;sa
 function editFood(id){
   const x=load(K.food,[]).find(e=>e.id===id);if(!x)return;
   $('f_date').value=x.date;$('f_time').value=x.time;
-  $('f_items').value=x.items;$('f_kcal').value=x.kcal||'';$('f_pro').value=x.pro||'';$('f_note').value=x.note||'';
+  $('f_items').value=x.items;$('f_kcal').value=x.kcal!=null?x.kcal:'';$('f_pro').value=x.pro!=null?x.pro:'';$('f_note').value=x.note||'';
   editId=id;nutLocked=true;
   $('f_add').textContent='💾 บันทึกการแก้ไข';
   if($('calcHint'))$('calcHint').textContent='✏️ กำลังแก้ไข — แก้เลข/เมนูแล้วกดบันทึก (กด 🧮 ถ้าจะให้คำนวณใหม่)';
@@ -652,7 +653,7 @@ const PRESETS=[
   {label:'🍲 ต้มเลือดหมู',items:'ต้มเลือดหมู',pro:18,kcal:200},
   {label:'🍧 บิงซู After You',items:'บิงซูโฮจิฉะ After You (มื้อโกง)',kcal:800}
 ];
-function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+function nowHM(){var n=new Date(),h=n.getHours(),m=n.getMinutes();return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
 // auto-คำนวณ kcal/โปรตีน — รองรับ 3 หน่วย:
 //   กรัม / 100g  → ใช้ค่า g:[pro/100g, kcal/100g]   เช่น "ข้าว 170 กรัม", "อกไก่ 150g"
 //   ตัว/ฟอง/ชิ้น → ใช้ค่า pc:[pro, kcal] ต่อชิ้น    เช่น "กุ้ง 7 ตัว", "ไข่ 3 ฟอง"
@@ -752,6 +753,7 @@ function autoNutri(){
   const r=calcNutri(txt);
   if(r.known===0){
     if(hint)hint.textContent=r.unknown>0?'❓ ไม่รู้จักเมนูนี้ — กรอก kcal/โปรตีน เอง หรือถ่ายรูปให้ AI ช่วย':'';
+    $('f_kcal').value='';$('f_pro').value='';
     return;
   }
   $('f_pro').value=r.pro;$('f_kcal').value=r.kcal;
@@ -765,7 +767,7 @@ function quickAdd(p){
   if(p.prefill){
     $('f_date').value=todayStr();const _hm=nowHM();$('f_time').value=_hm;updateMealHint(_hm);
     $('f_items').value=p.items;
-    $('f_kcal').value=p.kcal||'';$('f_pro').value=p.pro||'';$('f_note').value='';
+    $('f_kcal').value=p.kcal!=null?p.kcal:'';$('f_pro').value=p.pro!=null?p.pro:'';$('f_note').value='';
     nutLocked=false;autoNutri();
     const el=$('f_items');el.scrollIntoView({block:'center'});el.focus();
     const m=p.sel||'(ระบุเมนู)',i=p.items.indexOf(m);if(i>=0)el.setSelectionRange(i,i+m.length);
@@ -773,7 +775,7 @@ function quickAdd(p){
     return;
   }
   const arr=load(K.food,[]);
-  arr.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:mealFromTime(nowHM()),items:p.items,kcal:p.kcal||null,pro:p.pro||null,note:''});
+  arr.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:mealFromTime(nowHM()),items:p.items,kcal:p.kcal!=null?p.kcal:null,pro:p.pro!=null?p.pro:null,note:''});
   save(K.food,arr);renderFood();toast(p.items.slice(0,38)+(p.items.length>38?'…':'')+' ('+nowHM()+')');
 }
 function renderPresets(){
@@ -788,7 +790,7 @@ function foodRows(rows){
       <td style="white-space:nowrap;color:var(--accent);font-weight:700;font-size:13px">${x.time}</td>
       <td style="white-space:nowrap"><span class="pill ${mc}">${ml}</span></td>
       <td style="word-break:break-word;max-width:180px">${x.items}${x.note?`<div class="small muted">📝 ${x.note}</div>`:''}</td>
-      <td style="white-space:nowrap;font-size:12px;text-align:right">${(!x.kcal&&!x.pro)?'<span style="color:var(--warn)">⚠️</span>':[(x.kcal?'<b>'+x.kcal+'</b><span style="color:var(--muted)"> kcal</span>':''),(x.pro?'<b style="color:var(--blue)">'+x.pro+'g</b><span style="color:var(--muted)"> P</span>':'')].filter(Boolean).join('<br>')}</td>
+      <td style="white-space:nowrap;font-size:12px;text-align:right">${(x.kcal==null&&x.pro==null)?'<span style="color:var(--warn)">⚠️</span>':[(x.kcal!=null?'<b>'+x.kcal+'</b><span style="color:var(--muted)"> kcal</span>':''),(x.pro!=null?'<b style="color:var(--blue)">'+x.pro+'g</b><span style="color:var(--muted)"> P</span>':'')].filter(Boolean).join('<br>')}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="editFood(${x.id})">แก้</button> <button class="btn del sm" onclick="delFood(${x.id})">ลบ</button></td>
     </tr>`;
   });
@@ -838,9 +840,9 @@ function renderFood(){
 $('i_date').value=todayStr();
 $('i_add').onclick=()=>{
   const d=$('i_date').value;if(!d){alert('ใส่วันที่');return;}
-  const rec={date:d,weight:+$('i_weight').value||null,bf:+$('i_bf').value||null,smm:+$('i_smm').value||null,
-    vis:+$('i_vis').value||null,waist:+$('i_waist').value||null,score:+$('i_score').value||null,note:$('i_note').value.trim()};
-  if(rec.weight==null&&rec.bf==null&&rec.smm==null&&rec.vis==null&&rec.waist==null){alert('ใส่อย่างน้อย 1 ค่า (น้ำหนัก/%ไขมัน/SMM...)');return;}
+  const rec={date:d,weight:_n($('i_weight').value),bf:_n($('i_bf').value),smm:_n($('i_smm').value),
+    vis:_n($('i_vis').value),waist:_n($('i_waist').value),score:_n($('i_score').value),note:$('i_note').value.trim()};
+  if(rec.weight==null&&rec.bf==null&&rec.smm==null&&rec.vis==null&&rec.waist==null&&rec.score==null){alert('ใส่อย่างน้อย 1 ค่า (น้ำหนัก/%ไขมัน/SMM...)');return;}
   const arr=load(K.inbody,[]);
   const i=arr.findIndex(x=>x.date===d); if(i>=0){if(!confirm('มีผลวัดวันนี้แล้ว เขียนทับ?'))return;arr[i]=rec;}else arr.push(rec);
   save(K.inbody,arr);
@@ -1041,8 +1043,12 @@ function calcStreak(){
   return s;
 }
 function foodToday(){const t=todayStr();return load(K.food,[]).filter(x=>x.date===t);}
-function progBar(emoji,label,val,target,unit,opts={}){
-  const {maxFactor=1.15,b1=60,b2=null,proMode=false}=opts;
+function progBar(emoji,label,val,target,unit,opts){
+  opts=opts||{};
+  var maxFactor=opts.maxFactor!=null?opts.maxFactor:1.15;
+  var b1=opts.b1!=null?opts.b1:60;
+  var b2=opts.b2!=null?opts.b2:null;
+  var proMode=!!opts.proMode;
   const maxVal=target*maxFactor;
   const pct=Math.min(100,val/maxVal*100);
   const tPct=100/maxFactor;
@@ -1153,7 +1159,8 @@ function renderDash(){
   // progress to 14%
   if(last.bf!=null){
     const start=first.bf!=null?first.bf:18.9,target=14;
-    const pct=Math.max(0,Math.min(100,((start-last.bf)/(start-target))*100));
+    const _bfDenom=start-target;
+    const pct=_bfDenom===0?100:Math.max(0,Math.min(100,((start-last.bf)/_bfDenom)*100));
     $('progressBar').style.width=pct+'%';
     $('progressText').innerHTML='จาก '+start+'% → ตอนนี้ <b>'+last.bf+'%</b> → เป้า '+target+'% &nbsp; ('+pct.toFixed(0)+'% ของทาง)';
     // ETA via linear regression on all bf% data points
@@ -1246,7 +1253,7 @@ function renderCustomPresets(){
   box.querySelectorAll('button[data-cp]').forEach(b=>b.onclick=()=>{
     const p=load(K.custom,[])[+b.dataset.cp];if(!p)return;
     const arr2=load(K.food,[]);
-    arr2.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:mealFromTime(nowHM()),items:p.items,kcal:p.kcal||null,pro:p.pro||null,note:''});
+    arr2.push({id:Date.now(),date:todayStr(),time:nowHM(),meal:mealFromTime(nowHM()),items:p.items,kcal:p.kcal!=null?p.kcal:null,pro:p.pro!=null?p.pro:null,note:''});
     save(K.food,arr2);renderFood();toast(p.label);
   });
 }
@@ -1254,7 +1261,7 @@ function addCustomPreset(){
   const label=$('cp_label').value.trim(),items=$('cp_items').value.trim();
   if(!label||!items){alert('ใส่ชื่อปุ่มและรายการด้วยนะ');return;}
   const arr=load(K.custom,[]);
-  arr.push({id:Date.now(),label,items,kcal:+$('cp_kcal').value||null,pro:+$('cp_pro').value||null});
+  arr.push({id:Date.now(),label,items,kcal:_n($('cp_kcal').value),pro:_n($('cp_pro').value)});
   save(K.custom,arr);
   ['cp_label','cp_items','cp_kcal','cp_pro'].forEach(id=>$(id).value='');
   $('f_custom_form').style.display='none';
@@ -1404,6 +1411,7 @@ function fbDisconnect(){
 var _msIdx=0;
 var _msCtx=null,_msRaf=null,_msTick=0,_msParts=[];
 var _msFatLock=0;
+var _TAU=Math.PI*2;
 var _msSteps=[
   {lb:'1. โหมดพัก',bc:'#00b37d',glucR:0.3,insR:0,fatLk:0,fatBR:1,panAct:0.05,musGl:0.9,
    ti:'โหมดพักระหว่างมื้อ — เผาไขมัน 🔥',
@@ -1475,7 +1483,7 @@ function _msDraw(){
   // PANCREAS
   var panX=272,panY=42,panPulse=1+Math.sin(t*0.1)*0.04*(0.3+s.panAct*3);
   ctx.save();ctx.translate(panX,panY);ctx.scale(panPulse,panPulse);
-  if(s.panAct>0.1){var pgl=ctx.createRadialGradient(0,0,4,0,0,42);pgl.addColorStop(0,'rgba(251,146,60,'+(s.panAct*0.45)+')');pgl.addColorStop(1,'rgba(251,146,60,0)');ctx.fillStyle=pgl;ctx.beginPath();ctx.arc(0,0,42,0,6.28);ctx.fill();}
+  if(s.panAct>0.1){var pgl=ctx.createRadialGradient(0,0,4,0,0,42);pgl.addColorStop(0,'rgba(251,146,60,'+(s.panAct*0.45)+')');pgl.addColorStop(1,'rgba(251,146,60,0)');ctx.fillStyle=pgl;ctx.beginPath();ctx.arc(0,0,42,0,_TAU);ctx.fill();}
   ctx.save();ctx.translate(3,3);ctx.beginPath();ctx.moveTo(-28,-14);ctx.bezierCurveTo(-30,-24,22,-26,28,-14);ctx.bezierCurveTo(34,0,28,16,18,20);ctx.bezierCurveTo(6,24,-22,22,-24,14);ctx.bezierCurveTo(-32,6,-26,0,-28,-14);ctx.closePath();ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fill();ctx.restore();
   ctx.beginPath();ctx.moveTo(-28,-14);ctx.bezierCurveTo(-30,-24,22,-26,28,-14);ctx.bezierCurveTo(34,0,28,16,18,20);ctx.bezierCurveTo(6,24,-22,22,-24,14);ctx.bezierCurveTo(-32,6,-26,0,-28,-14);ctx.closePath();
   var pbg=ctx.createLinearGradient(-28,-26,22,22);pbg.addColorStop(0,'#fed7aa');pbg.addColorStop(0.45,'#fb923c');pbg.addColorStop(1,'#c2410c');ctx.fillStyle=pbg;ctx.fill();ctx.strokeStyle='rgba(254,215,170,0.45)';ctx.lineWidth=1.5;ctx.stroke();
@@ -1488,9 +1496,9 @@ function _msDraw(){
   var fcA=function(a){return 'rgba('+fcR+','+fcG+','+fcB+','+a+')';};
   for(var fi=0;fi<fcClusters.length;fi++){
     var fc=fcClusters[fi],fcx=fcCx+fc.dx,fcy=fcCy+fc.dy;
-    ctx.beginPath();ctx.arc(fcx+2,fcy+3,fc.r,0,6.28);ctx.fillStyle='rgba(0,0,0,0.28)';ctx.fill();
-    var fgl=ctx.createRadialGradient(fcx,fcy,fc.r*0.5,fcx,fcy,fc.r+12);fgl.addColorStop(0,fcA(0.3));fgl.addColorStop(1,fcA(0));ctx.fillStyle=fgl;ctx.beginPath();ctx.arc(fcx,fcy,fc.r+12,0,6.28);ctx.fill();
-    var fbody=ctx.createRadialGradient(fcx-fc.r*0.3,fcy-fc.r*0.35,fc.r*0.08,fcx,fcy,fc.r);fbody.addColorStop(0,'rgba(255,255,255,0.22)');fbody.addColorStop(0.35,fcA(0.65));fbody.addColorStop(1,fcA(0.92));ctx.beginPath();ctx.arc(fcx,fcy,fc.r,0,6.28);ctx.fillStyle=fbody;ctx.fill();ctx.strokeStyle=fcA(0.5);ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(fcx+2,fcy+3,fc.r,0,_TAU);ctx.fillStyle='rgba(0,0,0,0.28)';ctx.fill();
+    var fgl=ctx.createRadialGradient(fcx,fcy,fc.r*0.5,fcx,fcy,fc.r+12);fgl.addColorStop(0,fcA(0.3));fgl.addColorStop(1,fcA(0));ctx.fillStyle=fgl;ctx.beginPath();ctx.arc(fcx,fcy,fc.r+12,0,_TAU);ctx.fill();
+    var fbody=ctx.createRadialGradient(fcx-fc.r*0.3,fcy-fc.r*0.35,fc.r*0.08,fcx,fcy,fc.r);fbody.addColorStop(0,'rgba(255,255,255,0.22)');fbody.addColorStop(0.35,fcA(0.65));fbody.addColorStop(1,fcA(0.92));ctx.beginPath();ctx.arc(fcx,fcy,fc.r,0,_TAU);ctx.fillStyle=fbody;ctx.fill();ctx.strokeStyle=fcA(0.5);ctx.lineWidth=1.5;ctx.stroke();
     if(lk>0.4){ctx.save();ctx.globalAlpha=Math.min(1,(lk-0.4)*1.67);ctx.font=Math.round(fc.r*0.7)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🔒',fcx,fcy);ctx.restore();}
   }
   ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('เซลล์ไขมัน',fcCx,fcCy+35);
@@ -1509,9 +1517,9 @@ function _msDraw(){
     var pt=_msParts[pi];
     var fa=Math.min(1,Math.min(pt.life*0.12,(pt.max-pt.life)*0.12+0.25));
     ctx.globalAlpha=fa;
-    if(pt.t==='g'){var gg=ctx.createRadialGradient(pt.x-pt.r*0.35,pt.y-pt.r*0.35,0.3,pt.x,pt.y,pt.r);gg.addColorStop(0,'#fff0e0');gg.addColorStop(0.4,'#fb923c');gg.addColorStop(1,'#b45309');ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,6.28);ctx.fillStyle=gg;ctx.fill();}
+    if(pt.t==='g'){var gg=ctx.createRadialGradient(pt.x-pt.r*0.35,pt.y-pt.r*0.35,0.3,pt.x,pt.y,pt.r);gg.addColorStop(0,'#fff0e0');gg.addColorStop(0.4,'#fb923c');gg.addColorStop(1,'#b45309');ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,_TAU);ctx.fillStyle=gg;ctx.fill();}
     else if(pt.t==='i'){ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(0.785+t*0.02);var ig=ctx.createLinearGradient(-pt.r,-pt.r,pt.r,pt.r);ig.addColorStop(0,'#bfdbfe');ig.addColorStop(1,'#2563eb');ctx.fillStyle=ig;ctx.fillRect(-pt.r,-pt.r,pt.r*2,pt.r*2);ctx.restore();}
-    else if(pt.t==='f'){var fg=ctx.createRadialGradient(pt.x-pt.r*0.3,pt.y-pt.r*0.3,0.3,pt.x,pt.y,pt.r);fg.addColorStop(0,'#fefce8');fg.addColorStop(0.4,'#fde047');fg.addColorStop(1,'#a16207');ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,6.28);ctx.fillStyle=fg;ctx.fill();}
+    else if(pt.t==='f'){var fg=ctx.createRadialGradient(pt.x-pt.r*0.3,pt.y-pt.r*0.3,0.3,pt.x,pt.y,pt.r);fg.addColorStop(0,'#fefce8');fg.addColorStop(0.4,'#fde047');fg.addColorStop(1,'#a16207');ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,_TAU);ctx.fillStyle=fg;ctx.fill();}
   }
   ctx.globalAlpha=1;
   // STEP BADGE
@@ -1534,7 +1542,7 @@ function msNav(d){_msIdx=(_msIdx+d+_msSteps.length)%_msSteps.length;msRender();}
 function msGo(i){_msIdx=i;msRender();}
 
 // ---------- init ----------
-function renderAll(){renderDash();renderFood();renderInbody();renderPresets();renderTrainPresets();renderTrain();renderCustomPresets();}
+function renderAll(){renderDash();renderFood();renderInbody();renderPresets();renderTrainPresets();renderTrain();renderCustomPresets();renderDaily();}
 
 // custom preset UI wiring
 $('cp_toggle').onclick=()=>{
