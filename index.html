@@ -180,9 +180,7 @@
       <div class="card">
         <h2>📊 วันนี้กินไปเท่าไหร่ <span class="small muted" id="todayLabel"></span></h2>
         <div id="todayBars"></div>
-        <h3>นิสัยอื่น ๆ (แตะติ๊ก)</h3>
-        <div id="habits" class="grid" style="grid-template-columns:1fr 1fr;gap:8px"></div>
-        <p class="small muted" style="margin-top:10px">จดอาหารในแท็บ “บันทึกอาหาร” แล้วหลอดด้านบนอัปเดตเอง · ใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
+        <p class=”small muted” style=”margin-top:10px”>จดอาหารในแท็บ “บันทึกอาหาร” แล้วหลอดด้านบนอัปเดตเอง · ใช้ปุ่ม Export ส่งให้ผมวิเคราะห์คู่กับ InBody</p>
         <div id="proAlert" class="note danger small" style="display:none;margin-bottom:8px"></div>
         <div class="note warn">💡 ส่อง %ไขมัน + เอว + กระจก เป็นหลัก อย่ายึดตัวเลขตาชั่งรายวัน</div>
       </div>
@@ -359,11 +357,6 @@
 
   <!-- ===================== FOOD LOG ===================== -->
   <section class="tab" id="food">
-
-    <div class="card" style="margin-bottom:10px;padding:10px 14px">
-      <div class="small muted" style="font-weight:600;margin-bottom:6px">✅ นิสัยวันนี้ (แตะติ๊ก)</div>
-      <div id="food_habits" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
 
     <details style="margin-bottom:10px">
       <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 16px;font-weight:600">
@@ -596,27 +589,10 @@ document.querySelectorAll('nav.tabs button').forEach(function(b){
       if(b.dataset.tab==='inbody')renderInbody();
       if(b.dataset.tab==='dash')renderDash();
       if(b.dataset.tab==='daily')renderDaily();
-      if(b.dataset.tab==='food')renderHabits();
+      if(b.dataset.tab==='food')updateMiniSummary();
     }catch(e){console.error('tab render:',e);}
   });
 });
-
-// ---------- HABITS ----------
-const HAB=[['water','💧 น้ำ 2.5L'],['creatine','💊 ครีเอทีน'],
-  ['sleep','😴 นอน 7ชม'],['vitc','🍊 Vit C'],['nojunk','🚫 ไม่กินขยะ'],['gerd','✅ ไม่กรดไหลย้อน']];
-function renderHabits(){
-  const all=load(K.habits,{}),t=todayStr(),day=all[t]||{};
-  if($('todayLabel'))$('todayLabel').textContent='('+fmtD(t)+')';
-  const habHtml=HAB.map(([k,l])=>`<label class="chip"><input type="checkbox" data-h="${k}" ${day[k]?'checked':''}>${l}</label>`).join('');
-  ['habits','food_habits'].forEach(cid=>{
-    const el=$(cid);if(!el)return;
-    el.innerHTML=habHtml;
-    el.querySelectorAll('input').forEach(c=>c.onchange=()=>{
-      const a=load(K.habits,{}),t=todayStr();a[t]=a[t]||{};a[t][c.dataset.h]=c.checked;
-      save(K.habits,a);renderHabits();
-    });
-  });
-}
 
 // ---------- FOOD ----------
 let editId=null,nutLocked=false;
@@ -1151,7 +1127,8 @@ function updateMiniSummary(){
 
 // ---------- DASHBOARD ----------
 function renderDash(){
-  renderHabits();updateTodayBars();
+  if($('todayLabel'))$('todayLabel').textContent='('+fmtD(todayStr())+')';
+  updateTodayBars();
   const arr=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   if(!arr.length)return;
   const last=arr[arr.length-1],prev=arr.length>1?arr[arr.length-2]:null;
@@ -1224,7 +1201,6 @@ function renderDash(){
 $('genReport').onclick=()=>{
   const ib=load(K.inbody,[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   const food=load(K.food,[]).slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  const hab=load(K.habits,{});
   let r='===== TONY HEALTH TRACKER REPORT =====\n';
   r+='สร้างเมื่อ: '+new Date().toLocaleString('th-TH')+'\n';
   r+='เป้าหมาย: %ไขมัน 18.9% -> 14% | คง/เพิ่มกล้าม | ลดไขมันช่องท้อง\n\n';
@@ -1237,8 +1213,6 @@ $('genReport').onclick=()=>{
   r+='\n--- บันทึกเทรน ---\n';
   let ct='';
   train.forEach(x=>{if(x.date!==ct){ct=x.date;r+=`\n[${x.date}]\n`;}r+=`  ${x.time} ${x.act}${x.note?' ('+x.note+')':''}\n`;});
-  r+='\n--- เช็กลิสต์นิสัย (วันที่มีข้อมูล) ---\n';
-  Object.keys(hab).sort().forEach(d=>{const done=Object.entries(hab[d]).filter(([,v])=>v).map(([k])=>k).join(',');r+=`${d}: ${done||'-'}\n`;});
   r+='\n===== END (ก๊อปทั้งหมดส่งให้ Claude วิเคราะห์) =====';
   $('reportOut').value=r;$('reportOut').select();
 };
@@ -1307,7 +1281,7 @@ function weekRangeLabel(dateStr){
   return fmtD(mon.toLocaleDateString('en-CA'))+' – '+fmtD(sun.toLocaleDateString('en-CA'));
 }
 function renderDaily(){
-  const food=load(K.food,[]),train=load(K.train,[]),hab=load(K.habits,{});
+  const food=load(K.food,[]),train=load(K.train,[]);
   const byDate={};
   food.forEach(x=>{
     if(!byDate[x.date])byDate[x.date]={kcal:0,pro:0,n:0};
@@ -1338,7 +1312,7 @@ function renderDaily(){
     weekData[wk].kcal+=(day.kcal||0);weekData[wk].pro+=(day.pro||0);weekData[wk].n++;
     if((day.trains||[]).length>0)weekData[wk].trainDays++;
   });
-  html+='<div style="overflow-x:auto"><table><tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>✅ นิสัย</th><th>สรุป</th></tr>';
+  html+='<div style="overflow-x:auto"><table><tr><th>วันที่</th><th>🔥 kcal</th><th>🍗 P (g)</th><th>🏋️ เทรน</th><th>สรุป</th></tr>';
   let curWeek='';
   dates.forEach(function(d){
     const wk=isoWeekKey(d);
@@ -1346,7 +1320,7 @@ function renderDaily(){
       curWeek=wk;
       const ws=weekData[wk];
       const avgK=ws.n?Math.round(ws.kcal/ws.n):0,avgP=ws.n?Math.round(ws.pro/ws.n):0;
-      html+='<tr style="background:#0c1a14;border-top:2px solid var(--line)"><td colspan="6" style="padding:5px 10px;font-size:11px;color:var(--muted)"><b style="color:var(--accent)">📅 '+ws.label+'</b> &nbsp;·&nbsp; เฉลี่ย '+avgK+' kcal · '+avgP+'g P · เทรน '+ws.trainDays+'/'+ws.n+' วัน</td></tr>';
+      html+='<tr style="background:#0c1a14;border-top:2px solid var(--line)"><td colspan="5" style="padding:5px 10px;font-size:11px;color:var(--muted)"><b style="color:var(--accent)">📅 '+ws.label+'</b> &nbsp;·&nbsp; เฉลี่ย '+avgK+' kcal · '+avgP+'g P · เทรน '+ws.trainDays+'/'+ws.n+' วัน</td></tr>';
     }
     const day=byDate[d],kcal=day.kcal,pro=day.pro;
     const wasTrain=(day.trains||[]).length>0;
@@ -1356,9 +1330,7 @@ function renderDaily(){
     const isToday=d===t;
     const status=isToday&&!kcal?'📝':kcal>=tk*0.9&&pro>=tp?'🟢':kcal>=tk*0.7&&pro>=tp*0.8?'🟡':kcal>0||pro>0?'🔴':'📝';
     const trainStr=(day.trains||[]).join(' · ')||'—';
-    const habDay=hab[d]||{};
-    const habDone=Object.values(habDay).filter(Boolean).length;
-    html+='<tr'+(isToday?' style="background:var(--panel2)"':'')+'><td style="font-weight:700;white-space:nowrap">'+fmtD(d)+(isToday?' <span class="pill ok" style="font-size:10px">วันนี้</span>':'')+'</td><td style="color:'+kc+';font-weight:700;white-space:nowrap">'+(kcal||'—')+'</td><td style="color:'+pc+';font-weight:700;white-space:nowrap">'+(pro?pro+'g':'—')+'</td><td class="small muted">'+trainStr+'</td><td class="small">'+(habDone?habDone+'/'+HAB.length:'—')+'</td><td style="font-size:18px;text-align:center">'+status+'</td></tr>';
+    html+='<tr'+(isToday?' style="background:var(--panel2)"':'')+'><td style="font-weight:700;white-space:nowrap">'+fmtD(d)+(isToday?' <span class="pill ok" style="font-size:10px">วันนี้</span>':'')+'</td><td style="color:'+kc+';font-weight:700;white-space:nowrap">'+(kcal||'—')+'</td><td style="color:'+pc+';font-weight:700;white-space:nowrap">'+(pro?pro+'g':'—')+'</td><td class="small muted">'+trainStr+'</td><td style="font-size:18px;text-align:center">'+status+'</td></tr>';
   });
   html+='</table></div>';
   html+='<div class="note small" style="margin-top:10px">🟢 kcal ≥ 90% เป้า &amp; P ≥ '+tp+'g &nbsp;·&nbsp; 🟡 kcal ≥ 70% &amp; P ≥ '+Math.round(tp*0.8)+'g &nbsp;·&nbsp; 🔴 ต่ำกว่านั้น &nbsp;·&nbsp; เกณฑ์ kcal ปรับตามวันเทรน/พักอัตโนมัติ</div>';
@@ -1371,7 +1343,7 @@ function fbPush(){
   if(!_fbDb||_fbIgnore)return;
   clearTimeout(_fbTimer);
   _fbTimer=setTimeout(()=>{
-    const d={food:load(K.food,[]),inbody:load(K.inbody,[]),habits:load(K.habits,{}),
+    const d={food:load(K.food,[]),inbody:load(K.inbody,[]),
               train:load(K.train,[]),custom:load(K.custom,[]),_ts:Date.now()};
     _fbDb.ref('health/tony5847').set(d).catch(e=>fbSetStatus('push ล้มเหลว: '+e.message,false));
   },800);
