@@ -425,17 +425,17 @@ details[open] .arr{transform:rotate(90deg)}
       </div>
     </div>
 
-  <div class="card" style="margin-top:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <h2 style="margin:0">🔬 กลไก: คาร์บ → อินซูลิน → ไขมัน <span class="badge" style="background:rgba(96,165,250,.12);color:var(--blue);border-color:rgba(96,165,250,.22);font-size:10px;vertical-align:middle">Cinematic</span></h2>
-      <button class="btn ghost sm" id="ms_play" onclick="msTogglePlay()" style="min-width:80px">▶ เล่น</button>
+  <div class="card" style="margin-top:14px;padding:0;overflow:hidden;border-color:var(--b2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0;font-size:15px">🔬 กลไก: คาร์บ → อินซูลิน → ไขมัน</h2>
+      <button class="btn ghost sm" id="ms_play" onclick="msTogglePlay()" style="min-width:88px">▶ เล่น</button>
     </div>
-    <div id="ms_dots" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>
-    <div style="position:relative;border-radius:16px;overflow:hidden;background:#060c08;box-shadow:0 4px 32px rgba(0,0,0,.6)">
-      <canvas id="ms_canvas" width="1440" height="760" style="width:100%;aspect-ratio:720/380;display:block;touch-action:manipulation;max-height:360px"></canvas>
+    <div id="ms_dots" style="display:flex;gap:5px;flex-wrap:wrap;padding:0 18px 10px"></div>
+    <div style="position:relative;background:#030806">
+      <canvas id="ms_canvas" width="1440" height="880" style="width:100%;aspect-ratio:720/440;display:block;touch-action:manipulation"></canvas>
     </div>
-    <div id="ms_text" style="margin-top:12px;padding:14px;border-radius:12px;background:var(--panel2);border-left:3px solid var(--accent);font-size:13px;line-height:1.65"></div>
-    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+    <div id="ms_text" style="padding:14px 18px;border-top:1px solid var(--line);font-size:13px;line-height:1.65;transition:border-left-color .4s"></div>
+    <div style="display:flex;gap:8px;padding:10px 18px 14px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line)">
       <button class="btn ghost sm" onclick="msNav(-1)">◀ ย้อน</button>
       <button class="btn sm" onclick="msNav(1)">ถัดไป ▶</button>
       <span id="ms_counter" class="small muted"></span>
@@ -1584,236 +1584,477 @@ function fbDisconnect(){
   _fbDb=null;localStorage.removeItem('ht_fb_cfg');fbSetStatus('ยังไม่เชื่อมต่อ');
 }
 
-// ---------- METABOLISM CINEMATIC ENGINE ----------
+// ══════════════════════════════════════════════════════════════
+//  METABOLISM CINEMATIC v3  —  Spring physics · 4 moods · Depth
+// ══════════════════════════════════════════════════════════════
 var _msIdx=0,_msRaf=null,_msTick=0,_msParts=[],_msSceneT=0;
 var _msCtx=null,_msPlaying=false,_msPlayTimer=null;
-var _TAU=Math.PI*2,_MSW=720,_MSH=380;
-var _msSt={glucR:.2,insR:0,fatLk:0,fatBR:1,panAct:.02,musGl:.85,livGl:.08,intestAct:0};
+var _TAU=Math.PI*2,_MSW=720,_MSH=440;
+var _VY=234,_VH=42; // vessel center Y and half-height
+// Smooth state (spring-animated) — mood 0=green 1=amber 2=orange 3=purple
+var _msSt={glucR:.2,insR:.0,fatLk:.0,fatBR:1,panAct:.02,musGl:.85,livGl:.08,intestAct:.0,mood:.0};
+var _msV= {glucR:0, insR:0,  fatLk:0, fatBR:0,panAct:0, musGl:0,  livGl:0,  intestAct:0, mood:0};
+// Mood atmospheric accent colors [r,g,b]
+var _msMoodAc=[[52,211,153],[245,158,11],[249,115,22],[168,85,247]];
 var _msSteps=[
-  {lb:'1 · พัก',bc:'#34d399',glucR:.2,insR:0,fatLk:0,fatBR:1,panAct:.02,musGl:.85,livGl:.08,intestAct:0,
+  {lb:'1 · พัก',       bc:'#34d399',mood:0,glucR:.2,  insR:.0, fatLk:.0,fatBR:1,  panAct:.02,musGl:.85,livGl:.08,intestAct:.0,
    ti:'โหมดพักระหว่างมื้อ — เผาไขมัน 🔥',
    tx:'<b style="color:#34d399">อินซูลินต่ำ = โหมดเผาไขมัน ✅</b><br>เซลล์ไขมันปลดล็อก ปล่อยกรดไขมัน → ไมโตคอนเดรียเผาเป็นพลังงาน<br>เกิดขึ้น<b>ระหว่างมื้อ · อดอาหาร · ออกกำลังกาย</b>'},
-  {lb:'2 · กินคาร์บ',bc:'#f59e0b',glucR:2.6,insR:.18,fatLk:.1,fatBR:.4,panAct:.22,musGl:.45,livGl:.35,intestAct:1,
+  {lb:'2 · กินคาร์บ',  bc:'#f59e0b',mood:1,glucR:2.6, insR:.18,fatLk:.1, fatBR:.4, panAct:.22,musGl:.45,livGl:.35,intestAct:1,
    ti:'คาร์บ → กลูโคสเข้ากระแสเลือด',
-   tx:'คาร์บทุกชนิดย่อยเป็น<b>กลูโคส</b> ดูดซึมผ่านลำไส้เล็กเข้าเลือด<br><b>GI สูง</b> = พีคเร็ว สูง &nbsp;·&nbsp; <b>GI ต่ำ</b> = ขึ้นช้า สม่ำเสมอกว่า'},
-  {lb:'3 · น้ำตาลพีค',bc:'#ef4444',glucR:4.2,insR:2.1,fatLk:.7,fatBR:.06,panAct:1,musGl:.78,livGl:.88,intestAct:.55,
+   tx:'คาร์บทุกชนิดย่อยเป็น<b>กลูโคส</b> ดูดซึมผ่านลำไส้เล็ก → เส้นเลือดพอร์ทัล → ตับ<br><b>GI สูง</b> = พีคเร็ว สูง &nbsp;·&nbsp; <b>GI ต่ำ</b> = ขึ้นช้า สม่ำเสมอกว่า'},
+  {lb:'3 · น้ำตาลพีค', bc:'#f97316',mood:2,glucR:4.2, insR:2.1,fatLk:.7, fatBR:.06,panAct:1,  musGl:.78,livGl:.88,intestAct:.55,
    ti:'น้ำตาลพุ่งสูง → ตับอ่อนหลั่งอินซูลินเต็มที่',
-   tx:'<b style="color:#ef4444">ตับอ่อนตรวจจับกลูโคสสูง → หลั่งอินซูลินทันที</b><br>อินซูลินเหมือน "กุญแจ" เปิดประตูเซลล์รับกลูโคส<br>กล้ามเนื้อ + ตับรับก่อน → เก็บเป็น <b>Glycogen</b>'},
-  {lb:'4 · อินซูลินล็อก',bc:'#ef4444',glucR:.4,insR:2.6,fatLk:1,fatBR:0,panAct:.55,musGl:.28,livGl:.6,intestAct:.08,
+   tx:'<b style="color:#f97316">ตับอ่อนตรวจจับกลูโคสสูง → หลั่งอินซูลินทันที</b><br>อินซูลินเหมือน "กุญแจ" เปิดประตูเซลล์รับกลูโคส<br>กล้ามเนื้อ + ตับรับก่อน → เก็บเป็น <b>Glycogen</b>'},
+  {lb:'4 · อินซูลินล็อก',bc:'#a855f7',mood:3,glucR:.4,insR:2.6, fatLk:1,  fatBR:0,  panAct:.55,musGl:.28,livGl:.6, intestAct:.08,
    ti:'อินซูลินสูงค้าง → ล็อกเซลล์ไขมัน ไขมันถูกเก็บสะสม',
-   tx:'<b style="color:#ef4444">กลไกหลักสะสมไขมัน</b><br>อินซูลินยับยั้ง Hormone-Sensitive Lipase → เซลล์ไขมัน<b>เก็บ ไม่ปล่อย</b><br>De Novo Lipogenesis (กลูโคส→ไขมัน) มีเพียง ~5-10% เท่านั้น'},
-  {lb:'5 · กลับปกติ',bc:'#34d399',glucR:.22,insR:.04,fatLk:0,fatBR:1,panAct:.03,musGl:.88,livGl:.1,intestAct:0,
+   tx:'<b style="color:#a855f7">กลไกหลักสะสมไขมัน</b><br>อินซูลินยับยั้ง Hormone-Sensitive Lipase → เซลล์ไขมัน<b>เก็บ ไม่ปล่อย</b><br>De Novo Lipogenesis (กลูโคส→ไขมัน) มีเพียง ~5-10% เท่านั้น'},
+  {lb:'5 · กลับปกติ',  bc:'#34d399',mood:0,glucR:.22, insR:.04,fatLk:.0, fatBR:1,  panAct:.03,musGl:.88,livGl:.1, intestAct:.0,
    ti:'อินซูลินลด → เซลล์ไขมันเปิด → เผาไขมันอีกครั้ง ✅',
    tx:'<b style="color:#34d399">กลับสู่โหมดเผาไขมัน ✅</b><br>ใช้เวลา ~2-4 ชม. หลังมื้ออาหาร · GI ต่ำ = กลับเร็วกว่า<br><b>Carb Cycling</b> = วันพักกินคาร์บน้อย = อยู่โหมดนี้นานกว่า 💪'}
 ];
 function _msRR(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
-function _msLp(a,b,t){return a+(b-a)*t;}
+// Spring physics: k=stiffness, d=damping multiplier
+function _msSpring(key,target,k,d){_msV[key]=(_msV[key]+(target-_msSt[key])*(k||.044))*(d||.8);_msSt[key]+=_msV[key];}
 function _msUpdate(){
-  var s=_msSteps[_msIdx],sp=.042;
-  _msSt.glucR=_msLp(_msSt.glucR,s.glucR,sp);_msSt.insR=_msLp(_msSt.insR,s.insR,sp);
-  _msSt.fatLk=_msLp(_msSt.fatLk,s.fatLk,.032);_msSt.fatBR=_msLp(_msSt.fatBR,s.fatBR,.038);
-  _msSt.panAct=_msLp(_msSt.panAct,s.panAct,.05);_msSt.musGl=_msLp(_msSt.musGl,s.musGl,.04);
-  _msSt.livGl=_msLp(_msSt.livGl,s.livGl,.032);_msSt.intestAct=_msLp(_msSt.intestAct,s.intestAct,.048);
+  var s=_msSteps[_msIdx];
+  _msSpring('glucR',s.glucR,.044,.78);  _msSpring('insR',s.insR,.044,.78);
+  _msSpring('fatLk',s.fatLk,.032,.80);  _msSpring('fatBR',s.fatBR,.038,.80);
+  _msSpring('panAct',s.panAct,.052,.76);_msSpring('musGl',s.musGl,.040,.80);
+  _msSpring('livGl',s.livGl,.034,.80);  _msSpring('intestAct',s.intestAct,.048,.78);
+  _msSpring('mood',s.mood||0,.030,.82);
   _msSceneT++;var st=_msSt;
-  if(Math.random()<st.intestAct*.14)_msParts.push({t:'g',x:98+Math.random()*14,y:178+Math.random()*20,vx:1.1+Math.random()*.7,vy:(Math.random()-.5)*.28,r:3.2+Math.random()*2.2,life:0,max:155,sp:0});
-  if(Math.random()<st.glucR*.035&&st.intestAct<.4)_msParts.push({t:'g',x:Math.random()*_MSW,y:174+Math.random()*28,vx:.5+Math.random()*.4,vy:(Math.random()-.5)*.18,r:2.5+Math.random()*1.8,life:0,max:140,sp:0});
-  if(Math.random()<st.insR*.07)_msParts.push({t:'i',x:570+Math.random()*22,y:120,vx:(Math.random()-.5)*.38,vy:.75+Math.random()*.5,r:3.8,life:0,max:68,sp:Math.random()*_TAU});
-  if(Math.random()<st.fatBR*.065)_msParts.push({t:'f',x:598+Math.random()*30,y:260+Math.random()*55,vx:-(0.7+Math.random()*.65),vy:(Math.random()-.5)*.45,r:2.8+Math.random()*2.4,life:0,max:125,sp:Math.random()*_TAU});
-  if(Math.random()<st.musGl*.028&&st.musGl>.45)_msParts.push({t:'e',x:75+Math.random()*95,y:258+Math.random()*75,vx:(Math.random()-.5)*.9,vy:-(0.35+Math.random()*.65),r:1.8+Math.random()*1.2,life:0,max:45,sp:0});
+  // Portal glucose: intestine → steers to liver, then joins bloodstream
+  if(Math.random()<st.intestAct*.20)
+    _msParts.push({t:'g',x:90+Math.random()*10,y:90+Math.random()*14,vx:2.6+Math.random()*.8,vy:.5+Math.random()*.4,portal:1,r:3.0+Math.random()*1.8,life:0,max:90});
+  // Ambient glucose in bloodstream
+  if(Math.random()<st.glucR*.04&&st.glucR>.5)
+    _msParts.push({t:'g',x:Math.random()<.5?-6:_MSW+6,y:_VY-_VH/2+5+Math.random()*(_VH-10),vx:1.8+Math.random()*.9,vy:(Math.random()-.5)*.22,r:2.6+Math.random()*1.8,life:0,max:145});
+  // Insulin from pancreas
+  if(Math.random()<st.insR*.09)
+    _msParts.push({t:'i',x:568+Math.random()*20,y:118,vx:(Math.random()-.5)*.35,vy:.9+Math.random()*.55,r:3.6,life:0,max:75,sp:Math.random()*_TAU});
+  // Fatty acids from fat cells leftward
+  if(Math.random()<st.fatBR*.075)
+    _msParts.push({t:'f',x:598+Math.random()*38,y:295+Math.random()*72,vx:-(1.3+Math.random()*.7),vy:(Math.random()-.5)*.35,r:2.4+Math.random()*2.2,life:0,max:138});
+  // ATP energy sparks from muscle
+  if(Math.random()<st.musGl*.035&&st.musGl>.42)
+    _msParts.push({t:'e',x:68+Math.random()*108,y:318+Math.random()*86,vx:(Math.random()-.5)*.8,vy:-(0.6+Math.random()*.8),r:1.6+Math.random()*1.5,life:0,max:52});
   var np=[];
   for(var i=0;i<_msParts.length;i++){
-    var p=_msParts[i];p.x+=p.vx;p.y+=p.vy;p.life++;
-    if(p.t==='g'){if(p.y<170)p.vy=Math.abs(p.vy)*.72;if(p.y>202)p.vy=-Math.abs(p.vy)*.72;}
-    if(p.t==='i'&&p.y>198){p.vx*=.86;p.vy*=.86;}
-    if(p.t==='f')p.vy-=.008;if(p.t==='e')p.r*=.95;
-    if(p.sp!==undefined)p.sp+=.045;
-    if(p.life<p.max&&p.x>-20&&p.x<_MSW+20&&p.y>-20&&p.y<_MSH+20)np.push(p);
+    var p=_msParts[i];p.life++;
+    if(p.portal){
+      // Steer toward liver entry then vessel
+      var gx=p.life<35?272:272+(p.life-35)*4,gy=p.life<35?126:_VY-_VH/2+2;
+      p.vx+=(gx-p.x)*.055;p.vy+=(gy-p.y)*.055;p.vx*=.88;p.vy*=.88;
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.y>_VY-_VH/2&&p.x>200)p.portal=0;
+    } else {
+      p.x+=p.vx;p.y+=p.vy;
+    }
+    if(p.t==='g'&&!p.portal){
+      var vt=_VY-_VH/2,vb=_VY+_VH/2;
+      if(p.y<vt){p.y=vt;p.vy=Math.abs(p.vy)*.62;}
+      if(p.y>vb){p.y=vb;p.vy=-Math.abs(p.vy)*.62;}
+    }
+    if(p.t==='i'&&p.y>_VY-_VH/2){p.vx*=.88;p.vy*=.88;}
+    if(p.t==='f')p.vy-=.006;
+    if(p.t==='e')p.r*=.93;
+    if(p.sp!==undefined)p.sp+=.055;
+    if(p.life<p.max&&(p.portal||(p.x>-30&&p.x<_MSW+30&&p.y>-30&&p.y<_MSH+30)))np.push(p);
   }
-  if(np.length>220)np.splice(0,np.length-220);_msParts=np;
+  if(np.length>280)np.splice(0,np.length-280);_msParts=np;
 }
+// ── BACKGROUND: 4 mood atmospheres, smooth lerp ──────────────────────────
 function _msBG(ctx,W,H){
-  var bg=ctx.createRadialGradient(W*.46,H*.38,0,W*.46,H*.38,W*.72);
-  bg.addColorStop(0,'#0e1f16');bg.addColorStop(.5,'#0a1510');bg.addColorStop(1,'#060c08');
-  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-  var s=_msSteps[_msIdx],h2r=function(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];};
-  var c=h2r(s.bc||'#34d399');
-  var at=ctx.createRadialGradient(W*.5,H*.42,0,W*.5,H*.42,W*.65);
-  at.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+',.05)');at.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle='#030806';ctx.fillRect(0,0,W,H);
+  var m=Math.max(0,Math.min(2.999,_msSt.mood));
+  var mi=Math.floor(m),mf=m-mi,c0=_msMoodAc[mi],c1=_msMoodAc[mi+1]||c0;
+  var ar=Math.round(c0[0]+(c1[0]-c0[0])*mf);
+  var ag=Math.round(c0[1]+(c1[1]-c0[1])*mf);
+  var ab=Math.round(c0[2]+(c1[2]-c0[2])*mf);
+  // Main atmospheric glow
+  var at=ctx.createRadialGradient(W*.5,H*.44,0,W*.5,H*.44,W*.72);
+  at.addColorStop(0,'rgba('+ar+','+ag+','+ab+',.20)');
+  at.addColorStop(.42,'rgba('+ar+','+ag+','+ab+',.06)');
+  at.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=at;ctx.fillRect(0,0,W,H);
-  var vg=ctx.createRadialGradient(W/2,H/2,W*.15,W/2,H/2,W*.74);
-  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.7)');
+  // Warm focal light upper-right
+  var sun=ctx.createRadialGradient(W*.82,H*.08,0,W*.82,H*.08,W*.5);
+  sun.addColorStop(0,'rgba(255,210,120,.05)');sun.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
+  // Vignette (softened vs v2)
+  var vg=ctx.createRadialGradient(W*.5,H*.5,W*.14,W*.5,H*.5,W*.78);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.50)');
   ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
 }
+// ── BLOOD VESSEL: pulsing heartbeat tube with depth ───────────────────────
 function _msVessel(ctx,W,H,st){
-  var y1=168,y2=208,gi=Math.min(1,st.glucR*.22);
-  ctx.fillStyle='rgba(0,0,0,.52)';ctx.fillRect(0,y2+1,W,5);
-  var wall=ctx.createLinearGradient(0,y1-7,0,y2+7);wall.addColorStop(0,'#1c0308');wall.addColorStop(.5,'#2e0612');wall.addColorStop(1,'#100204');
-  ctx.fillStyle=wall;ctx.fillRect(0,y1-6,W,y2-y1+12);
-  var r=Math.round(118+gi*82),bl=ctx.createLinearGradient(0,y1,0,y2);
-  bl.addColorStop(0,'rgba('+(r+32)+',14,34,.95)');bl.addColorStop(.38,'rgba('+r+',9,24,1)');bl.addColorStop(.72,'rgba('+(r-14)+',7,18,1)');bl.addColorStop(1,'rgba('+(r-32)+',4,14,.92)');
-  ctx.fillStyle=bl;ctx.fillRect(0,y1,W,y2-y1);
-  if(st.insR>.08){ctx.fillStyle='rgba(59,130,246,'+Math.min(.2,st.insR*.075)+')';ctx.fillRect(0,y1,W,y2-y1);}
-  var hl=ctx.createLinearGradient(0,y1,0,y1+5);hl.addColorStop(0,'rgba(255,100,120,.22)');hl.addColorStop(1,'rgba(255,100,120,0)');ctx.fillStyle=hl;ctx.fillRect(0,y1,W,5);
-  ctx.fillStyle='rgba(255,255,255,.18)';ctx.font='7.5px -apple-system,sans-serif';ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText('กระแสเลือด  ▶▶',W-8,y1-3);
+  var beat=1+Math.sin(_msTick*.052)*.022;
+  var rh=(_VH/2)*beat,y1=_VY-rh,y2=_VY+rh;
+  var gi=Math.min(1,st.glucR*.22),ii=Math.min(1,st.insR*.36);
+  // Outer wall (tapers to transparent at canvas edge)
+  var wall=ctx.createLinearGradient(0,y1-9,0,y2+9);
+  wall.addColorStop(0,'rgba(0,0,0,0)');wall.addColorStop(.13,'#120104');
+  wall.addColorStop(.87,'#120104');wall.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=wall;ctx.fillRect(0,y1-9,W,rh*2+18);
+  // Blood fill — deepens with glucose
+  var rv=Math.round(138+gi*82);
+  var bl=ctx.createLinearGradient(0,y1,0,y2);
+  bl.addColorStop(0,'rgba('+(rv+38)+',18,40,.95)');
+  bl.addColorStop(.3,'rgba('+rv+',12,26,1)');
+  bl.addColorStop(.72,'rgba('+(rv-16)+',8,18,1)');
+  bl.addColorStop(1,'rgba('+(rv-34)+',5,13,.92)');
+  ctx.fillStyle=bl;ctx.fillRect(0,y1,W,rh*2);
+  // Insulin tint (deep indigo)
+  if(ii>.04){ctx.fillStyle='rgba(79,70,229,'+Math.min(.28,ii*.28)+')';ctx.fillRect(0,y1,W,rh*2);}
+  // Top specular
+  var hl=ctx.createLinearGradient(0,y1,0,y1+7);
+  hl.addColorStop(0,'rgba(255,120,150,.32)');hl.addColorStop(1,'rgba(255,60,90,0)');
+  ctx.fillStyle=hl;ctx.fillRect(0,y1,W,7);
+  // Bottom shadow
+  var bs=ctx.createLinearGradient(0,y2-2,0,y2+12);
+  bs.addColorStop(0,'rgba(0,0,0,0)');bs.addColorStop(1,'rgba(0,0,0,.5)');
+  ctx.fillStyle=bs;ctx.fillRect(0,y2-2,W,14);
+  ctx.fillStyle='rgba(140,35,55,.45)';ctx.fillRect(0,y1-1,W,1.5);
+  ctx.fillStyle='rgba(70,8,16,.65)';ctx.fillRect(0,y2,W,1.5);
 }
+// ── INTESTINE: peristaltic coils, portal vein branch ─────────────────────
 function _msIntestine(ctx,t,st){
-  var ia=st.intestAct,cx=68,cy=96;
+  var ia=st.intestAct,cx=78,cy=92;
   ctx.save();ctx.translate(cx,cy);
-  if(ia>.08){var g=ctx.createRadialGradient(0,22,2,0,22,58);g.addColorStop(0,'rgba(251,146,60,'+(ia*.22)+')');g.addColorStop(1,'rgba(251,146,60,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,22,58,0,_TAU);ctx.fill();}
-  [{x:-12,y:2,rx:18,ry:11,a:.18},{x:9,y:17,rx:14,ry:9,a:-.15},{x:-9,y:31,rx:16,ry:10,a:.12},{x:7,y:44,rx:13,ry:8,a:-.18}].forEach(function(l,li){
-    ctx.beginPath();ctx.ellipse(l.x,l.y,l.rx,l.ry,l.a,0,_TAU);
-    ctx.fillStyle='rgba('+(100+li*4)+','+(35+li*3)+','+(55+li*3)+',.88)';ctx.fill();
-    ctx.strokeStyle='rgba('+(128+li*5)+','+(54+li*4)+','+(74+li*4)+',.55)';ctx.lineWidth=1.2;ctx.stroke();
-    ctx.beginPath();ctx.ellipse(l.x-l.rx*.3,l.y-l.ry*.3,l.rx*.44,l.ry*.38,l.a,0,_TAU);
-    ctx.fillStyle='rgba(255,140,90,.1)';ctx.fill();
-  });
-  ctx.fillStyle='rgba(255,255,255,.68)';ctx.font='bold 8.5px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ลำไส้เล็ก',0,58);
-  ctx.fillStyle='rgba(255,170,100,.4)';ctx.font='7px sans-serif';ctx.fillText('Small Intestine',0,68);
-  ctx.restore();
-  ctx.beginPath();ctx.moveTo(cx+17,cy+44);ctx.lineTo(cx+24,168-6);
-  ctx.strokeStyle='rgba(251,146,60,'+(0.14+ia*.4)+')';ctx.lineWidth=1.4;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);
-}
-function _msLiver(ctx,t,st){
-  var lx=278,ly=105,gl=st.livGl,pu=1+Math.sin(t*.028)*.01;
-  ctx.save();ctx.translate(lx,ly);ctx.scale(pu,pu);
-  if(gl>.08){var og=ctx.createRadialGradient(0,8,6,0,8,84);og.addColorStop(0,'rgba(251,146,60,'+(gl*.28)+')');og.addColorStop(.6,'rgba(245,158,11,'+(gl*.09)+')');og.addColorStop(1,'rgba(245,158,11,0)');ctx.fillStyle=og;ctx.beginPath();ctx.arc(0,8,84,0,_TAU);ctx.fill();}
-  var lp=function(){ctx.beginPath();ctx.moveTo(-58,-16);ctx.bezierCurveTo(-55,-46,42,-44,54,-18);ctx.bezierCurveTo(64,4,50,34,28,40);ctx.bezierCurveTo(8,46,-44,40,-54,22);ctx.bezierCurveTo(-66,6,-62,-6,-58,-16);ctx.closePath();};
-  ctx.save();ctx.translate(4,5);lp();ctx.fillStyle='rgba(0,0,0,.38)';ctx.fill();ctx.restore();
-  lp();var lg=ctx.createLinearGradient(-58,-44,42,40);lg.addColorStop(0,'#8B2500');lg.addColorStop(.28,'#A63208');lg.addColorStop(.6,'#8B2D09');lg.addColorStop(1,'#6B1E04');ctx.fillStyle=lg;ctx.fill();
-  lp();var sp=ctx.createRadialGradient(-26,-22,0,-20,-16,36);sp.addColorStop(0,'rgba(255,195,140,.24)');sp.addColorStop(.55,'rgba(255,140,70,.07)');sp.addColorStop(1,'rgba(255,100,20,0)');ctx.fillStyle=sp;ctx.fill();
-  lp();var rm=ctx.createLinearGradient(32,-40,58,-8);rm.addColorStop(0,'rgba(255,130,50,.3)');rm.addColorStop(1,'rgba(255,130,50,0)');ctx.fillStyle=rm;ctx.fill();
-  if(gl>.18){var gg2=ctx.createRadialGradient(-10,6,1,-10,6,28);gg2.addColorStop(0,'rgba(253,224,71,'+Math.min(.88,gl)+')');gg2.addColorStop(.5,'rgba(245,158,11,'+(gl*.42)+')');gg2.addColorStop(1,'rgba(245,158,11,0)');ctx.fillStyle=gg2;ctx.beginPath();ctx.arc(-10,6,28,0,_TAU);ctx.fill();
-    if(gl>.5){ctx.fillStyle='rgba(253,224,71,'+Math.min(.92,gl)+')';ctx.font='bold '+(6+Math.round(gl*2.5))+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('glycogen',-10,6);}}
-  lp();ctx.strokeStyle='rgba(180,83,9,'+(0.28+gl*.22)+')';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.82)';ctx.font='bold 10px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ตับ',0,44);
-  ctx.fillStyle='rgba(255,195,120,.42)';ctx.font='7.5px sans-serif';ctx.fillText('Liver',0,56);
-  ctx.restore();
-  var dl=ctx.createLinearGradient(lx,ly+60,lx,168-4);dl.addColorStop(0,'rgba(180,83,9,'+(0.22+gl*.4)+')');dl.addColorStop(1,'rgba(180,83,9,.06)');
-  ctx.beginPath();ctx.moveTo(lx,ly+60);ctx.lineTo(lx,168-4);ctx.strokeStyle=dl;ctx.lineWidth=1.4;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
-}
-function _msPancreas(ctx,t,st){
-  var px=578,py=85,pa=st.panAct,pu=1+Math.sin(t*.08)*.03*(0.2+pa*4);
-  ctx.save();ctx.translate(px,py);ctx.scale(pu,pu);
-  if(pa>.06){var pg=ctx.createRadialGradient(0,0,4,0,0,58);pg.addColorStop(0,'rgba(251,146,60,'+(pa*.52)+')');pg.addColorStop(.5,'rgba(239,68,68,'+(pa*.16)+')');pg.addColorStop(1,'rgba(239,68,68,0)');ctx.fillStyle=pg;ctx.beginPath();ctx.arc(0,0,58,0,_TAU);ctx.fill();}
-  var pp=function(){ctx.beginPath();ctx.moveTo(-34,-13);ctx.bezierCurveTo(-30,-30,26,-28,32,-13);ctx.bezierCurveTo(38,2,30,19,14,23);ctx.bezierCurveTo(2,27,-24,23,-28,13);ctx.bezierCurveTo(-36,4,-38,-4,-34,-13);ctx.closePath();};
-  ctx.save();ctx.translate(3,4);pp();ctx.fillStyle='rgba(0,0,0,.35)';ctx.fill();ctx.restore();
-  pp();var pbg=ctx.createLinearGradient(-34,-30,22,23);pbg.addColorStop(0,'#FED7AA');pbg.addColorStop(.38,'#FB923C');pbg.addColorStop(.72,'#EA580C');pbg.addColorStop(1,'#C2410C');ctx.fillStyle=pbg;ctx.fill();
-  [{x:-8,y:-1,r:4.2},{x:7,y:5,r:3.6},{x:-1,y:9,r:3.2},{x:13,y:-5,r:3}].forEach(function(il){
-    ctx.beginPath();ctx.arc(il.x,il.y,il.r,0,_TAU);var ig=ctx.createRadialGradient(il.x,il.y,0,il.x,il.y,il.r);ig.addColorStop(0,'rgba(255,220,175,'+(0.38+pa*.55)+')');ig.addColorStop(1,'rgba(255,155,55,0)');ctx.fillStyle=ig;ctx.fill();
-  });
-  pp();var sp=ctx.createRadialGradient(-14,-12,0,-10,-9,22);sp.addColorStop(0,'rgba(255,240,200,.28)');sp.addColorStop(1,'rgba(255,200,100,0)');ctx.fillStyle=sp;ctx.fill();
-  ctx.strokeStyle='rgba(254,215,170,.4)';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.86)';ctx.font='bold 9.5px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ตับอ่อน',0,26);
-  ctx.fillStyle='rgba(255,195,120,.44)';ctx.font='7.5px sans-serif';ctx.fillText('Pancreas',0,37);
-  ctx.restore();
-  ctx.beginPath();ctx.moveTo(px,py+40);ctx.lineTo(px,168-4);ctx.strokeStyle='rgba(251,146,60,'+(0.18+pa*.45)+')';ctx.lineWidth=1.4;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);
-}
-function _msMuscle(ctx,t,st){
-  var mx=58,my=242,mw=112,mh=88,mg=st.musGl;
-  if(mg>.18){var og=ctx.createRadialGradient(mx+mw*.5,my+mh*.5,4,mx+mw*.5,my+mh*.5,86);og.addColorStop(0,'rgba(239,68,68,'+(mg*.2)+')');og.addColorStop(1,'rgba(239,68,68,0)');ctx.fillStyle=og;ctx.fillRect(mx-22,my-22,mw+44,mh+44);}
-  ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(mx+3,my+3,mw,mh);
-  var nc=9,fh=mh/nc,cs=['#7f1d1d','#8B2020','#7a1b1b','#8B2020','#7f1d1d','#872020','#7a1b1b','#8B2020','#7f1d1d'];
-  for(var fi=0;fi<nc;fi++){
-    ctx.fillStyle=cs[fi];ctx.fillRect(mx,my+fi*fh,mw,fh+.5);
-    ctx.fillStyle='rgba(255,255,255,.035)';ctx.fillRect(mx,my+fi*fh,mw,1.5);
-    ctx.fillStyle='rgba(0,0,0,.1)';for(var xs=12;xs<mw;xs+=14)ctx.fillRect(mx+xs,my+fi*fh+1.5,1,fh-2);
+  if(ia>.06){
+    var g=ctx.createRadialGradient(0,20,2,0,20,62);
+    g.addColorStop(0,'rgba(251,146,60,'+ia*.38+')');g.addColorStop(1,'rgba(251,146,60,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,20,62,0,_TAU);ctx.fill();
   }
-  ctx.strokeStyle='rgba(252,165,165,.22)';ctx.lineWidth=1.4;ctx.strokeRect(mx,my,mw,mh);
-  ctx.fillStyle='rgba(252,165,165,.1)';ctx.fillRect(mx,my,mw,4);
-  var sp=ctx.createLinearGradient(mx,my,mx+mw*.38,my+mh*.28);sp.addColorStop(0,'rgba(255,150,150,.08)');sp.addColorStop(1,'rgba(255,150,150,0)');ctx.fillStyle=sp;ctx.fillRect(mx,my,mw,mh);
-  if(mg>.48){ctx.save();ctx.globalAlpha=(mg-.4)*.7;[{x:22,y:20},{x:52,y:32},{x:84,y:18},{x:36,y:58},{x:70,y:60},{x:95,y:44}].forEach(function(m){ctx.beginPath();ctx.ellipse(mx+m.x,my+m.y,5.5,3.2,.28,0,_TAU);ctx.fillStyle='rgba(239,68,68,.42)';ctx.fill();ctx.beginPath();ctx.ellipse(mx+m.x-1,my+m.y-.5,2.5,1.6,.28,0,_TAU);ctx.fillStyle='rgba(255,200,175,.3)';ctx.fill();});ctx.restore();}
-  ctx.fillStyle='rgba(255,255,255,.72)';ctx.font='bold 9.5px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('กล้ามเนื้อ',mx+mw*.5,my+mh+5);
-  ctx.fillStyle='rgba(252,165,165,.42)';ctx.font='7.5px sans-serif';ctx.fillText('Muscle',mx+mw*.5,my+mh+17);
-}
-function _msFatCells(ctx,t,st){
-  var lk=st.fatLk,fcx=616,fcy=292;
-  var gc=lk>.5?'rgba(239,68,68,'+(lk*.16)+')':'rgba(52,211,153,'+((1-lk)*.13)+')';
-  var cg=ctx.createRadialGradient(fcx,fcy,8,fcx,fcy,82);cg.addColorStop(0,gc);cg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=cg;ctx.beginPath();ctx.arc(fcx,fcy,82,0,_TAU);ctx.fill();
-  [{dx:-20,dy:-25,r:28},{dx:24,dy:-13,r:24},{dx:-4,dy:20,r:26},{dx:28,dy:20,r:19},{dx:-26,dy:14,r:22}].forEach(function(cell){
-    var cx2=fcx+cell.dx,cy2=fcy+cell.dy;
-    var rr=Math.round(0+(239-0)*lk),gr=Math.round(179+(68-179)*lk),br=Math.round(125+(68-125)*lk);
-    ctx.beginPath();ctx.arc(cx2+3,cy2+4,cell.r,0,_TAU);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
-    var cg2=ctx.createRadialGradient(cx2-cell.r*.32,cy2-cell.r*.32,0,cx2,cy2,cell.r);
-    cg2.addColorStop(0,'rgba('+(Math.min(255,rr+55))+','+(Math.min(255,gr+38))+','+(Math.min(255,br+28))+',.9)');
-    cg2.addColorStop(.5,'rgba('+rr+','+gr+','+br+',.82)');cg2.addColorStop(1,'rgba('+(Math.max(0,rr-28))+','+(Math.max(0,gr-28))+','+(Math.max(0,br-18))+',.9)');
-    ctx.beginPath();ctx.arc(cx2,cy2,cell.r,0,_TAU);ctx.fillStyle=cg2;ctx.fill();
-    var ld=ctx.createRadialGradient(cx2-cell.r*.2,cy2-cell.r*.2,0,cx2,cy2,cell.r*.68);ld.addColorStop(0,'rgba(255,255,205,.14)');ld.addColorStop(1,'rgba(255,255,205,0)');ctx.fillStyle=ld;ctx.fill();
-    ctx.beginPath();ctx.arc(cx2-cell.r*.3,cy2-cell.r*.3,cell.r*.2,0,_TAU);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fill();
-    ctx.beginPath();ctx.arc(cx2,cy2,cell.r,0,_TAU);ctx.strokeStyle='rgba('+rr+','+gr+','+br+',.48)';ctx.lineWidth=1.4;ctx.stroke();
-    if(lk>.45){ctx.save();ctx.globalAlpha=Math.min(1,(lk-.35)*1.5);ctx.font=Math.round(cell.r*.52)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🔒',cx2,cy2);ctx.restore();}
+  [{x:-13,y:0,rx:19,ry:12,a:.18},{x:10,y:16,rx:15,ry:10,a:-.15},
+   {x:-10,y:30,rx:17,ry:11,a:.12},{x:8,y:44,rx:14,ry:9,a:-.18}].forEach(function(l,li){
+    var wave=1+Math.sin(t*.06+li*.9)*.04*ia;
+    ctx.save();ctx.scale(1,wave);
+    ctx.beginPath();ctx.ellipse(l.x,l.y,l.rx,l.ry,l.a,0,_TAU);
+    ctx.fillStyle='rgba('+(100+li*4)+','+(33+li*3)+','+(52+li*3)+',.9)';ctx.fill();
+    ctx.beginPath();ctx.ellipse(l.x,l.y,l.rx,l.ry,l.a,0,_TAU);
+    ctx.strokeStyle='rgba('+(130+li*5)+','+(52+li*4)+','+(72+li*4)+',.5)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.beginPath();ctx.ellipse(l.x-l.rx*.28,l.y-l.ry*.28,l.rx*.42,l.ry*.36,l.a,0,_TAU);
+    ctx.fillStyle='rgba(255,130,75,.13)';ctx.fill();
+    ctx.restore();
   });
-  ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='bold 9.5px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('เซลล์ไขมัน',fcx,fcy+52);
-  ctx.fillStyle=lk>.5?'rgba(239,68,68,.88)':'rgba(52,211,153,.88)';ctx.font='bold 8px sans-serif';ctx.fillText(lk>.5?'🔒 ล็อก':'✅ ปลดล็อก',fcx,fcy+64);
-  ctx.fillStyle='rgba(255,210,120,.38)';ctx.font='7.5px sans-serif';ctx.fillText('Fat Cells',fcx,fcy+76);
+  ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=5;
+  ctx.fillStyle='rgba(255,255,255,.82)';
+  ctx.font='bold 12px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ลำไส้เล็ก',0,56);
+  ctx.shadowBlur=0;ctx.restore();
+  // Portal vein curve to liver
+  var alpha=.15+ia*.52;
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(cx+20,cy+44);
+  ctx.bezierCurveTo(cx+55,cy+80,222,148,272,_VY-_VH/2-5);
+  ctx.strokeStyle='rgba(180,65,15,'+alpha+')';
+  ctx.lineWidth=ia>.3?2:1.4;ctx.setLineDash([4,5]);ctx.stroke();ctx.setLineDash([]);
+  if(ia>.28){
+    ctx.globalAlpha=(ia-.22)*1.5;
+    ctx.fillStyle='rgba(251,146,60,.8)';
+    ctx.font='7.5px -apple-system,sans-serif';
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText('portal vein →',cx+26,cy+60);
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
 }
+// ── LIVER: multi-layer, unified upper-left light, glycogen burst ──────────
+function _msLiver(ctx,t,st){
+  var lx=272,ly=112,gl=st.livGl,breathe=1+Math.sin(t*.022)*.008;
+  ctx.save();ctx.translate(lx,ly);ctx.scale(breathe,breathe);
+  if(gl>.08){
+    var og=ctx.createRadialGradient(-8,5,8,-8,5,92);
+    og.addColorStop(0,'rgba(251,146,60,'+gl*.38+')');
+    og.addColorStop(.5,'rgba(245,158,11,'+gl*.12+')');og.addColorStop(1,'rgba(245,158,11,0)');
+    ctx.fillStyle=og;ctx.beginPath();ctx.arc(-8,5,92,0,_TAU);ctx.fill();
+  }
+  var lp=function(){ctx.beginPath();ctx.moveTo(-62,-18);ctx.bezierCurveTo(-58,-50,44,-48,58,-20);ctx.bezierCurveTo(70,4,54,38,30,44);ctx.bezierCurveTo(8,50,-46,44,-58,24);ctx.bezierCurveTo(-70,6,-66,-4,-62,-18);ctx.closePath();};
+  ctx.save();ctx.translate(5,6);lp();ctx.fillStyle='rgba(0,0,0,.42)';ctx.fill();ctx.restore();
+  lp();
+  var lg=ctx.createLinearGradient(-62,-48,44,44);
+  lg.addColorStop(0,'#7c2100');lg.addColorStop(.22,'#9e3208');lg.addColorStop(.55,'#8a2b08');lg.addColorStop(1,'#5e1802');
+  ctx.fillStyle=lg;ctx.fill();
+  lp();
+  var sp=ctx.createRadialGradient(-30,-24,0,-22,-18,44);
+  sp.addColorStop(0,'rgba(255,200,150,.28)');sp.addColorStop(.5,'rgba(255,140,80,.08)');sp.addColorStop(1,'rgba(255,100,30,0)');
+  ctx.fillStyle=sp;ctx.fill();
+  lp();
+  var rm=ctx.createLinearGradient(38,-42,62,-6);
+  rm.addColorStop(0,'rgba(255,120,40,.36)');rm.addColorStop(1,'rgba(255,120,40,0)');
+  ctx.fillStyle=rm;ctx.fill();
+  if(gl>.2){
+    var gg=ctx.createRadialGradient(-10,6,2,-10,6,34);
+    gg.addColorStop(0,'rgba(252,211,77,'+Math.min(.92,gl)+')');
+    gg.addColorStop(.5,'rgba(245,158,11,'+gl*.46+')');gg.addColorStop(1,'rgba(245,158,11,0)');
+    ctx.fillStyle=gg;ctx.beginPath();ctx.arc(-10,6,34,0,_TAU);ctx.fill();
+    if(gl>.46){
+      ctx.save();ctx.globalAlpha=Math.min(1,(gl-.36)*1.8);
+      ctx.fillStyle='rgba(252,211,77,1)';
+      ctx.font='bold '+(8+Math.round(gl*4))+'px -apple-system,sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=5;
+      ctx.fillText('glycogen',-10,6);ctx.shadowBlur=0;ctx.restore();
+    }
+  }
+  lp();ctx.strokeStyle='rgba(180,80,10,'+(.3+gl*.25)+')';ctx.lineWidth=1.6;ctx.stroke();
+  ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=8;
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.font='bold 14px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ตับ',0,48);
+  ctx.shadowBlur=0;ctx.restore();
+  var dl=ctx.createLinearGradient(lx,ly+64,lx,_VY-_VH/2-4);
+  dl.addColorStop(0,'rgba(160,70,10,'+(.28+gl*.38)+')');dl.addColorStop(1,'rgba(160,70,10,.05)');
+  ctx.beginPath();ctx.moveTo(lx,ly+64);ctx.lineTo(lx,_VY-_VH/2-4);
+  ctx.strokeStyle=dl;ctx.lineWidth=1.6;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+}
+// ── PANCREAS: pulsing islets, insulin duct ───────────────────────────────
+function _msPancreas(ctx,t,st){
+  var px=572,py=86,pa=st.panAct,beat=1+Math.sin(t*.082)*.032*(0.15+pa*4.5);
+  ctx.save();ctx.translate(px,py);ctx.scale(beat,beat);
+  if(pa>.04){
+    var pg=ctx.createRadialGradient(0,0,4,0,0,66);
+    pg.addColorStop(0,'rgba(251,146,60,'+pa*.62+')');
+    pg.addColorStop(.48,'rgba(239,68,68,'+pa*.2+')');pg.addColorStop(1,'rgba(239,68,68,0)');
+    ctx.fillStyle=pg;ctx.beginPath();ctx.arc(0,0,66,0,_TAU);ctx.fill();
+  }
+  var pp=function(){ctx.beginPath();ctx.moveTo(-36,-14);ctx.bezierCurveTo(-32,-32,28,-30,34,-14);ctx.bezierCurveTo(40,2,32,21,16,25);ctx.bezierCurveTo(4,29,-26,25,-30,14);ctx.bezierCurveTo(-38,4,-40,-4,-36,-14);ctx.closePath();};
+  ctx.save();ctx.translate(3,4);pp();ctx.fillStyle='rgba(0,0,0,.38)';ctx.fill();ctx.restore();
+  pp();
+  var pbg=ctx.createLinearGradient(-36,-30,24,25);
+  pbg.addColorStop(0,'#FED7AA');pbg.addColorStop(.35,'#FB923C');pbg.addColorStop(.7,'#EA580C');pbg.addColorStop(1,'#C2410C');
+  ctx.fillStyle=pbg;ctx.fill();
+  [{x:-9,y:-2,r:4.5},{x:8,y:6,r:3.8},{x:-1,y:10,r:3.4},{x:15,y:-6,r:3.1}].forEach(function(il){
+    ctx.beginPath();ctx.arc(il.x,il.y,il.r,0,_TAU);
+    var ig=ctx.createRadialGradient(il.x,il.y,0,il.x,il.y,il.r);
+    ig.addColorStop(0,'rgba(255,225,180,'+(.42+pa*.52)+')');ig.addColorStop(1,'rgba(255,155,60,0)');
+    ctx.fillStyle=ig;ctx.fill();
+  });
+  pp();
+  var sp=ctx.createRadialGradient(-16,-14,0,-11,-10,24);
+  sp.addColorStop(0,'rgba(255,240,200,.3)');sp.addColorStop(1,'rgba(255,200,100,0)');
+  ctx.fillStyle=sp;ctx.fill();
+  ctx.strokeStyle='rgba(254,215,170,.42)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=8;
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.font='bold 13px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ตับอ่อน',0,29);
+  ctx.shadowBlur=0;ctx.restore();
+  ctx.beginPath();ctx.moveTo(px,py+42);ctx.lineTo(px-3,_VY-_VH/2-4);
+  ctx.strokeStyle='rgba(251,146,60,'+(.2+pa*.5)+')';
+  ctx.lineWidth=1.5;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);
+}
+// ── MUSCLE: rounded block, cylindrical fibers, mitochondria ──────────────
+function _msMuscle(ctx,t,st){
+  var mx=56,my=310,mw=122,mh=102,mg=st.musGl;
+  if(mg>.2){
+    var og=ctx.createRadialGradient(mx+mw*.5,my+mh*.5,5,mx+mw*.5,my+mh*.5,96);
+    og.addColorStop(0,'rgba(239,68,68,'+mg*.18+')');og.addColorStop(1,'rgba(239,68,68,0)');
+    ctx.fillStyle=og;ctx.fillRect(mx-28,my-28,mw+56,mh+56);
+  }
+  ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();_msRR(ctx,mx+4,my+4,mw,mh,9);ctx.fill();
+  ctx.save();ctx.beginPath();_msRR(ctx,mx,my,mw,mh,9);ctx.clip();
+  var nc=8,fh=mh/nc;
+  for(var fi=0;fi<nc;fi++){
+    var fy=my+fi*fh;
+    var ffg=ctx.createLinearGradient(mx,fy,mx,fy+fh);
+    ffg.addColorStop(0,'#8b1c1c');ffg.addColorStop(.38,'#7a1515');ffg.addColorStop(.62,'#7a1515');ffg.addColorStop(1,'#6e1212');
+    ctx.fillStyle=ffg;ctx.fillRect(mx,fy,mw,fh+.5);
+    ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=.8;
+    for(var xs=8;xs<mw;xs+=12){ctx.beginPath();ctx.moveTo(mx+xs,fy+1);ctx.lineTo(mx+xs,fy+fh-1);ctx.stroke();}
+    ctx.fillStyle='rgba(255,255,255,.045)';ctx.fillRect(mx,fy,mw,1.4);
+    ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(mx,fy+fh-.8,mw,1.2);
+  }
+  var msp=ctx.createLinearGradient(mx,my,mx+mw*.42,my+mh*.3);
+  msp.addColorStop(0,'rgba(255,140,140,.11)');msp.addColorStop(1,'rgba(255,100,100,0)');
+  ctx.fillStyle=msp;ctx.fillRect(mx,my,mw,mh);
+  ctx.restore();
+  ctx.beginPath();_msRR(ctx,mx,my,mw,mh,9);
+  ctx.strokeStyle='rgba(252,165,165,.26)';ctx.lineWidth=1.4;ctx.stroke();
+  if(mg>.42){
+    ctx.save();ctx.globalAlpha=(mg-.38)*.9;
+    ctx.beginPath();_msRR(ctx,mx+4,my+4,mw-8,mh-8,7);ctx.clip();
+    [{x:16,y:18},{x:50,y:30},{x:86,y:16},{x:30,y:62},{x:66,y:58},{x:96,y:44}].forEach(function(m){
+      ctx.save();ctx.translate(mx+m.x,my+m.y);ctx.rotate(.28);
+      ctx.beginPath();ctx.ellipse(0,0,6.5,3.5,0,0,_TAU);
+      var mg2=ctx.createRadialGradient(-2,-1,0,0,0,6.5);
+      mg2.addColorStop(0,'rgba(239,100,68,.7)');mg2.addColorStop(1,'rgba(180,40,20,.18)');
+      ctx.fillStyle=mg2;ctx.fill();
+      ctx.strokeStyle='rgba(252,160,120,.4)';ctx.lineWidth=.7;ctx.stroke();
+      ctx.beginPath();ctx.ellipse(0,0,3.4,1.7,0,0,_TAU);ctx.fillStyle='rgba(255,190,150,.28)';ctx.fill();
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+  ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=8;
+  ctx.fillStyle='rgba(255,255,255,.78)';
+  ctx.font='bold 13px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('กล้ามเนื้อ',mx+mw*.5,my+mh+6);
+  ctx.shadowBlur=0;
+  // Muscle-to-vessel connection
+  var vc=mx+mw*.5;
+  ctx.beginPath();ctx.moveTo(vc,_VY+_VH/2+3);ctx.lineTo(vc,my-2);
+  ctx.strokeStyle='rgba(220,50,50,.18)';ctx.lineWidth=1.2;ctx.setLineDash([3,5]);ctx.stroke();ctx.setLineDash([]);
+}
+// ── FAT CELLS: membrane ring lock animation, teal→gold→purple ────────────
+function _msFatCells(ctx,t,st){
+  var lk=st.fatLk,fcx=618,fcy=342;
+  var gcR=lk>.5?Math.round(52+(168-52)*(lk-.5)*2):52;
+  var gcG=lk>.5?Math.round(211+(85-211)*(lk-.5)*2):Math.round(211-(211-180)*lk*2);
+  var gcB=lk>.5?Math.round(153+(247-153)*(lk-.5)*2):153;
+  var cg=ctx.createRadialGradient(fcx,fcy,8,fcx,fcy,90);
+  cg.addColorStop(0,'rgba('+gcR+','+gcG+','+gcB+','+(lk>.5?lk*.2:(1-lk)*.16)+')');
+  cg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(fcx,fcy,90,0,_TAU);ctx.fill();
+  [{dx:-22,dy:-30,r:30},{dx:26,dy:-14,r:26},{dx:-5,dy:22,r:28},{dx:28,dy:22,r:21},{dx:-28,dy:16,r:23}].forEach(function(cell,ci){
+    var cx2=fcx+cell.dx,cy2=fcy+cell.dy;
+    var rr,grr,br;
+    if(lk<.5){rr=Math.round(52+(253-52)*lk*2);grr=Math.round(211+(180-211)*lk*2);br=Math.round(153+(60-153)*lk*2);}
+    else{var l2=(lk-.5)*2;rr=Math.round(253+(168-253)*l2);grr=Math.round(180+(85-180)*l2);br=Math.round(60+(247-60)*l2);}
+    ctx.beginPath();ctx.arc(cx2+3,cy2+4,cell.r,0,_TAU);ctx.fillStyle='rgba(0,0,0,.32)';ctx.fill();
+    var cg2=ctx.createRadialGradient(cx2-cell.r*.3,cy2-cell.r*.3,0,cx2,cy2,cell.r);
+    cg2.addColorStop(0,'rgba('+Math.min(255,rr+52)+','+Math.min(255,grr+38)+','+Math.min(255,br+30)+',.92)');
+    cg2.addColorStop(.5,'rgba('+rr+','+grr+','+br+',.86)');
+    cg2.addColorStop(1,'rgba('+Math.max(0,rr-26)+','+Math.max(0,grr-26)+','+Math.max(0,br-18)+',.92)');
+    ctx.beginPath();ctx.arc(cx2,cy2,cell.r,0,_TAU);ctx.fillStyle=cg2;ctx.fill();
+    var ld=ctx.createRadialGradient(cx2-cell.r*.18,cy2-cell.r*.18,0,cx2,cy2,cell.r*.7);
+    ld.addColorStop(0,'rgba(255,255,225,.18)');ld.addColorStop(1,'rgba(255,255,185,0)');
+    ctx.fillStyle=ld;ctx.fill();
+    ctx.beginPath();ctx.arc(cx2-cell.r*.32,cy2-cell.r*.32,cell.r*.22,0,_TAU);
+    ctx.fillStyle='rgba(255,255,255,.24)';ctx.fill();
+    ctx.beginPath();ctx.arc(cx2,cy2,cell.r,0,_TAU);
+    ctx.strokeStyle='rgba('+rr+','+grr+','+br+','+(.48+lk*.36)+')';
+    ctx.lineWidth=1.2+lk*2.4;ctx.stroke();
+    // Lock: two pulsing halo rings instead of emoji
+    if(lk>.38){
+      var la=Math.min(1,(lk-.3)*1.5),pulse=1+Math.sin(t*.065+ci*1.3)*.09;
+      ctx.beginPath();ctx.arc(cx2,cy2,cell.r*pulse*1.2,0,_TAU);
+      ctx.strokeStyle='rgba('+rr+','+grr+','+br+','+la*.38+')';ctx.lineWidth=1.2;ctx.stroke();
+      ctx.beginPath();ctx.arc(cx2,cy2,cell.r*pulse*1.42,0,_TAU);
+      ctx.strokeStyle='rgba('+rr+','+grr+','+br+','+la*.14+')';ctx.lineWidth=.8;ctx.stroke();
+    }
+    // Release: arrows burst outward when burning
+    if(st.fatBR>.55&&lk<.28){
+      for(var ai=0;ai<3;ai++){
+        var ang=ai*_TAU/3+t*.02+ci*.85;
+        var ax=cx2+Math.cos(ang)*cell.r*1.28,ay=cy2+Math.sin(ang)*cell.r*1.28;
+        ctx.save();ctx.translate(ax,ay);ctx.rotate(ang);
+        ctx.globalAlpha=st.fatBR*.5*(1-lk)*(Math.sin(_msTick*.05+ai+ci)*.38+.55);
+        ctx.fillStyle='rgba(52,211,153,1)';
+        ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(-2.2,3.2);ctx.lineTo(-2.2,-3.2);ctx.closePath();ctx.fill();
+        ctx.restore();
+      }
+    }
+  });
+  ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=8;
+  ctx.fillStyle='rgba(255,255,255,.78)';
+  ctx.font='bold 13px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('เซลล์ไขมัน',fcx,fcy+54);
+  var stc=lk>.65?'rgba(168,85,247,.95)':lk>.3?'rgba(251,146,60,.9)':'rgba(52,211,153,.9)';
+  var stxt=lk>.65?'◉ ล็อกสะสม':lk>.3?'◑ กำลังล็อก':'◯ ปลดล็อกเผา';
+  ctx.fillStyle=stc;ctx.font='bold 10px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.shadowBlur=4;ctx.fillText(stxt,fcx,fcy+70);ctx.shadowBlur=0;
+}
+// ── PARTICLES: glucose·insulin crystal·fatty acid·ATP star ───────────────
 function _msParticles(ctx,t){
   for(var pi=0;pi<_msParts.length;pi++){
-    var pt=_msParts[pi],fa=Math.min(1,Math.min(pt.life*.1,(pt.max-pt.life)*.12+.28));
-    ctx.globalAlpha=fa*.9;
+    var pt=_msParts[pi];
+    var fa=Math.min(1,Math.min(pt.life*.12,(pt.max-pt.life)*.15+.3));
+    ctx.globalAlpha=fa*.88;
     if(pt.t==='g'){
-      var gg=ctx.createRadialGradient(pt.x-pt.r*.32,pt.y-pt.r*.35,pt.r*.04,pt.x+pt.r*.08,pt.y+pt.r*.08,pt.r);
-      gg.addColorStop(0,'#fff8e8');gg.addColorStop(.22,'#fdba74');gg.addColorStop(.6,'#f97316');gg.addColorStop(1,'#b45309');
+      var gg=ctx.createRadialGradient(pt.x-pt.r*.32,pt.y-pt.r*.36,pt.r*.03,pt.x+pt.r*.08,pt.y+pt.r*.08,pt.r);
+      gg.addColorStop(0,'#fff4e0');gg.addColorStop(.18,'#fdba74');gg.addColorStop(.58,'#f97316');gg.addColorStop(1,'#b45309');
       ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,_TAU);ctx.fillStyle=gg;ctx.fill();
-      ctx.beginPath();ctx.arc(pt.x-pt.r*.3,pt.y-pt.r*.32,pt.r*.18,0,_TAU);ctx.fillStyle='rgba(255,255,255,.32)';ctx.fill();
+      ctx.beginPath();ctx.arc(pt.x-pt.r*.3,pt.y-pt.r*.33,pt.r*.2,0,_TAU);ctx.fillStyle='rgba(255,255,255,.36)';ctx.fill();
     } else if(pt.t==='i'){
       ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(pt.sp||0);
-      ctx.beginPath();for(var hi=0;hi<6;hi++){var ha=hi*Math.PI/3;hi===0?ctx.moveTo(Math.cos(ha)*pt.r,Math.sin(ha)*pt.r):ctx.lineTo(Math.cos(ha)*pt.r,Math.sin(ha)*pt.r);}ctx.closePath();
-      var ig=ctx.createLinearGradient(-pt.r,-pt.r,pt.r,pt.r);ig.addColorStop(0,'#bfdbfe');ig.addColorStop(.5,'#3b82f6');ig.addColorStop(1,'#1e40af');ctx.fillStyle=ig;ctx.fill();
-      ctx.strokeStyle='rgba(147,197,253,.55)';ctx.lineWidth=.7;ctx.stroke();
-      ctx.beginPath();ctx.arc(0,0,pt.r*.32,0,_TAU);ctx.fillStyle='rgba(219,234,254,.52)';ctx.fill();
+      ctx.beginPath();
+      for(var hi=0;hi<6;hi++){var ha=hi*Math.PI/3;hi===0?ctx.moveTo(Math.cos(ha)*pt.r,Math.sin(ha)*pt.r):ctx.lineTo(Math.cos(ha)*pt.r,Math.sin(ha)*pt.r);}
+      ctx.closePath();
+      var ig=ctx.createLinearGradient(-pt.r,-pt.r,pt.r,pt.r);
+      ig.addColorStop(0,'#c7d2fe');ig.addColorStop(.45,'#818cf8');ig.addColorStop(1,'#312e81');
+      ctx.fillStyle=ig;ctx.fill();
+      ctx.strokeStyle='rgba(165,180,252,.58)';ctx.lineWidth=.7;ctx.stroke();
+      ctx.beginPath();ctx.arc(0,0,pt.r*.3,0,_TAU);ctx.fillStyle='rgba(224,231,255,.5)';ctx.fill();
       ctx.restore();
     } else if(pt.t==='f'){
-      var fg=ctx.createRadialGradient(pt.x-pt.r*.3,pt.y-pt.r*.34,pt.r*.04,pt.x,pt.y,pt.r);
-      fg.addColorStop(0,'#fefce8');fg.addColorStop(.28,'#fef08a');fg.addColorStop(.65,'#fde047');fg.addColorStop(1,'#a16207');
+      var fg=ctx.createRadialGradient(pt.x-pt.r*.28,pt.y-pt.r*.32,pt.r*.03,pt.x,pt.y,pt.r);
+      fg.addColorStop(0,'#fefce8');fg.addColorStop(.25,'#fef08a');fg.addColorStop(.62,'#facc15');fg.addColorStop(1,'#a16207');
       ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,_TAU);ctx.fillStyle=fg;ctx.fill();
-      ctx.beginPath();ctx.arc(pt.x-pt.r*.3,pt.y-pt.r*.32,pt.r*.17,0,_TAU);ctx.fillStyle='rgba(255,255,255,.28)';ctx.fill();
+      ctx.beginPath();ctx.arc(pt.x-pt.r*.28,pt.y-pt.r*.3,pt.r*.18,0,_TAU);ctx.fillStyle='rgba(255,255,255,.3)';ctx.fill();
     } else if(pt.t==='e'){
-      ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,_TAU);ctx.fillStyle='rgba(52,211,153,.82)';ctx.fill();
+      ctx.save();ctx.translate(pt.x,pt.y);
+      ctx.beginPath();
+      for(var si=0;si<8;si++){var sa=si*_TAU/8,sl=si%2===0?pt.r:pt.r*.44;si===0?ctx.moveTo(Math.cos(sa)*sl,Math.sin(sa)*sl):ctx.lineTo(Math.cos(sa)*sl,Math.sin(sa)*sl);}
+      ctx.closePath();
+      var eg=ctx.createRadialGradient(0,0,0,0,0,pt.r);
+      eg.addColorStop(0,'rgba(167,243,208,1)');eg.addColorStop(.5,'rgba(52,211,153,.82)');eg.addColorStop(1,'rgba(16,185,129,0)');
+      ctx.fillStyle=eg;ctx.fill();ctx.restore();
     }
     ctx.globalAlpha=1;
   }
 }
+// ── HUD: cinematic 20px title with scene glow, badge, legend ─────────────
 function _msHUD(ctx,W,H){
-  var s=_msSteps[_msIdx],ta=Math.min(1,_msSceneT*.055);
+  var s=_msSteps[_msIdx],ta=Math.min(1,_msSceneT*.05);
   ctx.save();ctx.globalAlpha=ta;
-  ctx.fillStyle=s.bc||'#34d399';ctx.font='bold 13.5px -apple-system,"Noto Sans Thai",sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(s.ti,W/2,10);
-  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='8.5px -apple-system,"Noto Sans Thai",sans-serif';ctx.fillText('ขั้นที่ '+(_msIdx+1)+'/'+_msSteps.length+'  ·  swipe ← →',W/2,27);
-  ctx.restore();
-  ctx.fillStyle='rgba(0,0,0,.62)';_msRR(ctx,8,8,108,22,6);ctx.fill();
-  ctx.fillStyle=s.bc;ctx.font='bold 10px -apple-system,"Noto Sans Thai",sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(s.lb,14,19);
-  ctx.fillStyle='rgba(0,0,0,.6)';_msRR(ctx,8,H-26,312,20,5);ctx.fill();
-  ctx.font='8px -apple-system,sans-serif';ctx.textBaseline='middle';
-  [['#f97316','● กลูโคส',16],['#3b82f6','◆ อินซูลิน',94],['#fde047','● ไขมัน',176],['rgba(253,224,71,.82)','◉ glycogen',244]].forEach(function(it){ctx.fillStyle=it[0];ctx.textAlign='left';ctx.fillText(it[1],it[2],H-16);});
+  ctx.font='bold 20px -apple-system,"Noto Sans Thai",sans-serif';
+  var tw=ctx.measureText(s.ti).width,pad=18;
+  ctx.fillStyle='rgba(0,0,0,.55)';_msRR(ctx,W/2-tw/2-pad,12,tw+pad*2,30,15);ctx.fill();
+  ctx.shadowColor=s.bc;ctx.shadowBlur=26;
+  ctx.fillStyle=s.bc;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(s.ti,W/2,16);
+  ctx.shadowBlur=0;ctx.restore();
+  // Step badge top-left
+  ctx.fillStyle='rgba(0,0,0,.65)';_msRR(ctx,10,10,106,20,10);ctx.fill();
+  ctx.fillStyle=s.bc;ctx.font='bold 9.5px -apple-system,"Noto Sans Thai",sans-serif';
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(s.lb,16,20);
+  // Legend bottom-center
+  var legs=[['#f97316','กลูโคส'],['#818cf8','อินซูลิน'],['#facc15','ไขมัน'],['#34d399','พลังงาน']];
+  ctx.font='9px -apple-system,"Noto Sans Thai",sans-serif';
+  var lw=0;legs.forEach(function(l){lw+=ctx.measureText(l[1]).width+22;});
+  var lx=W/2-lw/2,lys=H-18;
+  ctx.fillStyle='rgba(0,0,0,.58)';_msRR(ctx,lx-10,lys-8,lw+16,20,10);ctx.fill();
+  legs.forEach(function(l){
+    ctx.beginPath();ctx.arc(lx+5,lys+2,3.8,0,_TAU);ctx.fillStyle=l[0];ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.66)';ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(l[1],lx+12,lys+2);lx+=ctx.measureText(l[1]).width+22;
+  });
 }
 function _msDraw(){
   var ctx=_msCtx;if(!ctx)return;
   var W=_MSW,H=_MSH,t=_msTick,st=_msSt;
   _msBG(ctx,W,H);
-  _msIntestine(ctx,t,st);_msLiver(ctx,t,st);_msMuscle(ctx,t,st);
-  _msPancreas(ctx,t,st);_msVessel(ctx,W,H,st);_msFatCells(ctx,t,st);
+  _msIntestine(ctx,t,st);_msLiver(ctx,t,st);_msPancreas(ctx,t,st);
+  _msVessel(ctx,W,H,st);_msMuscle(ctx,t,st);_msFatCells(ctx,t,st);
   _msParticles(ctx,t);_msHUD(ctx,W,H);
 }
 function msInit(){
   var c=document.getElementById('ms_canvas');if(!c||!c.getContext)return;
-  _msCtx=c.getContext('2d');_msCtx.setTransform(2,0,0,2,0,0);
+  _msCtx=c.getContext('2d',{alpha:false});_msCtx.setTransform(2,0,0,2,0,0);
   _msParts=[];_msTick=0;_msSceneT=0;
   if(_msRaf)cancelAnimationFrame(_msRaf);
   (function loop(){_msRaf=requestAnimationFrame(loop);_msTick++;_msUpdate();_msDraw();})();
-  var sx=0;
-  c.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;},{passive:true});
-  c.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>32){msNav(dx<0?1:-1);}},{passive:true});
+  if(c._tsx)c.removeEventListener('touchstart',c._tsx,{passive:true});
+  if(c._tex)c.removeEventListener('touchend',c._tex,{passive:true});
+  c._tsx=function(e){c._sw=e.touches[0].clientX;};
+  c._tex=function(e){var dx=e.changedTouches[0].clientX-(c._sw||0);if(Math.abs(dx)>32)msNav(dx<0?1:-1);};
+  c.addEventListener('touchstart',c._tsx,{passive:true});
+  c.addEventListener('touchend',c._tex,{passive:true});
 }
 function msTogglePlay(){
   _msPlaying=!_msPlaying;var btn=document.getElementById('ms_play');
-  if(_msPlaying){if(btn)btn.textContent='⏸ หยุด';_msPlayTimer=setInterval(function(){msNav(1);},2600);}
+  if(_msPlaying){if(btn)btn.textContent='⏸ หยุด';_msPlayTimer=setInterval(function(){msNav(1);},3000);}
   else{if(btn)btn.textContent='▶ เล่น';clearInterval(_msPlayTimer);_msPlayTimer=null;}
 }
 function msNav(d){_msIdx=(_msIdx+d+_msSteps.length)%_msSteps.length;_msSceneT=0;msRender();}
 function msGo(i){_msIdx=i;_msSceneT=0;msRender();}
 function msRender(){
   var s=_msSteps[_msIdx];var dd=$('ms_dots');if(!dd)return;
-  dd.innerHTML=_msSteps.map(function(x,i){var a=i===_msIdx;return '<button onclick="msGo('+i+')" style="padding:5px 12px;border-radius:20px;border:1px solid '+(a?s.bc:'var(--line)')+';background:'+(a?s.bc:'transparent')+';color:'+(a?'#041c0f':'var(--muted)')+';font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;touch-action:manipulation;transition:all .18s">'+x.lb+'</button>';}).join('');
-  var mt=$('ms_text');if(mt){mt.style.borderLeftColor=s.bc;mt.innerHTML='<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:6px">'+s.ti+'</div><div style="font-size:12.5px;color:var(--muted);line-height:1.7">'+s.tx+'</div>';}
+  dd.innerHTML=_msSteps.map(function(x,i){var a=i===_msIdx;return '<button onclick="msGo('+i+')" style="padding:5px 12px;border-radius:20px;border:1px solid '+(a?s.bc:'var(--line)')+';background:'+(a?s.bc:'transparent')+';color:'+(a?'#041c0f':'var(--muted)')+';font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;touch-action:manipulation">'+x.lb+'</button>';}).join('');
+  var mt=$('ms_text');
+  if(mt){mt.style.borderLeft='3px solid '+s.bc;mt.innerHTML='<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:6px">'+s.ti+'</div><div style="font-size:12.5px;color:var(--muted);line-height:1.7">'+s.tx+'</div>';}
   var mc=$('ms_counter');if(mc)mc.textContent='ขั้น '+(_msIdx+1)+'/'+_msSteps.length;
 }
 
